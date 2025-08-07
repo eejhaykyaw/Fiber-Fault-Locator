@@ -1,154 +1,155 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
   <title>Fiber Fault Locator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/togeojson"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; }
-    #map { height: 100vh; width: 100%; position: relative; }
-    #controls {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%; /* match map width */
-      background: rgba(255, 255, 255, 0.5); /* 50% opacity */
-      padding: 10px;
-      box-sizing: border-box;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-      z-index: 1000;
+    html, body {
+      height: 100%;
+      margin: 0;
     }
-    #controls button, #controls select, #controls input {
-      padding: 5px 10px;
-      border: 1px solid #888;
-      border-radius: 4px;
-      background-color: rgba(255, 255, 255, 0.8);
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+    #controlPanel {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(255, 255, 255, 0.5);
+      padding: 10px;
+      border-radius: 8px;
+      z-index: 5;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      max-width: 90%;
+    }
+    #controlPanel input, #controlPanel select, #controlPanel button {
+      padding: 5px;
+      font-size: 14px;
     }
   </style>
+  <script src="https://unpkg.com/togeojson@0.16.0/togeojson.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
 </head>
 <body>
-  <div id="map">
-    <div id="controls">
-      <input type="file" id="file-input" accept=".kml,.kmz">
-      <label>Reference Node:
-        <select id="node-select"></select>
-      </label>
-      <label>OTDR Distance (m):
-        <input type="number" id="distance-input" placeholder="e.g. 500" />
-      </label>
-      <button onclick="calculateFault()">Locate Fault</button>
-    </div>
+  <div id="controlPanel">
+    <input type="file" id="fileInput" accept=".kml,.kmz">
+    <select id="refPoint">
+      <option value="A">Reference Point A</option>
+      <option value="B">Reference Point B</option>
+    </select>
+    <input type="number" id="otdrDistance" placeholder="OTDR Distance (m)">
+    <button onclick="locateFault()">Locate Fault</button>
   </div>
+  <div id="map"></div>
 
   <script>
-    let map = L.map('map', { zoomControl: false }).setView([14.5995, 120.9842], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    let map, routePath, routeCoords = [], faultMarker, pointA, pointB;
 
-    let routeLine, placemarks = {}, routeCoords = [];
-
-    document.getElementById('file-input').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      const ext = file.name.split('.').pop().toLowerCase();
-
-      if (ext === "kmz") {
-        reader.onload = function(e) {
-          JSZip.loadAsync(e.target.result).then(zip => {
-            Object.keys(zip.files).forEach(function(filename) {
-              if (filename.endsWith(".kml")) {
-                zip.files[filename].async("string").then(kmlText => processKML(kmlText));
-              }
-            });
-          });
-        };
-        reader.readAsArrayBuffer(file);
-      } else {
-        reader.onload = e => processKML(e.target.result);
-        reader.readAsText(file);
-      }
-    });
-
-    function processKML(kmlText) {
-      const parser = new DOMParser();
-      const kml = parser.parseFromString(kmlText, "text/xml");
-      const geojson = toGeoJSON.kml(kml);
-
-      routeCoords = [];
-      placemarks = {};
-
-      // Clear previous
-      if (routeLine) map.removeLayer(routeLine);
-      document.getElementById('node-select').innerHTML = '';
-
-      geojson.features.forEach(feature => {
-        if (feature.geometry.type === "LineString") {
-          routeCoords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
-          routeLine = L.polyline(routeCoords, { color: 'blue' }).addTo(map);
-          map.fitBounds(routeLine.getBounds());
-        }
-
-        if (feature.geometry.type === "Point") {
-          const [lon, lat] = feature.geometry.coordinates;
-          const name = feature.properties.name || `Node ${Object.keys(placemarks).length + 1}`;
-          placemarks[name] = [lat, lon];
-          document.getElementById('node-select').innerHTML += `<option value="${name}">${name}</option>`;
-          L.marker([lat, lon]).bindPopup(name).addTo(map);
-        }
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: 14.5995, lng: 120.9842 },
+        zoom: 12
       });
     }
 
-    function calculateFault() {
-      const refNode = document.getElementById('node-select').value;
-      const inputDist = parseFloat(document.getElementById('distance-input').value);
+    document.getElementById('fileInput').addEventListener('change', handleFile);
 
-      if (!placemarks[refNode] || !inputDist || routeCoords.length === 0) {
-        alert("Please load a route and input distance.");
+    async function handleFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      let kmlText = '';
+      if (file.name.endsWith('.kmz')) {
+        const zip = await JSZip.loadAsync(file);
+        const kmlFile = Object.keys(zip.files).find(name => name.endsWith('.kml'));
+        kmlText = await zip.files[kmlFile].async('string');
+      } else {
+        kmlText = await file.text();
+      }
+
+      const parser = new DOMParser();
+      const kml = parser.parseFromString(kmlText, 'text/xml');
+      const geojson = toGeoJSON.kml(kml);
+
+      if (routePath) routePath.setMap(null);
+      routeCoords = geojson.features[0].geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] }));
+      routePath = new google.maps.Polyline({
+        path: routeCoords,
+        geodesic: true,
+        strokeColor: '#FF0000',
+        strokeOpacity: 1.0,
+        strokeWeight: 2,
+        map: map
+      });
+
+      // Extract placemarks for Point A and B if available
+      const placemarks = geojson.features.filter(f => f.geometry.type === "Point");
+      if (placemarks.length >= 2) {
+        pointA = { lat: placemarks[0].geometry.coordinates[1], lng: placemarks[0].geometry.coordinates[0] };
+        pointB = { lat: placemarks[1].geometry.coordinates[1], lng: placemarks[1].geometry.coordinates[0] };
+      } else {
+        pointA = routeCoords[0];
+        pointB = routeCoords[routeCoords.length - 1];
+      }
+
+      map.fitBounds(new google.maps.LatLngBounds().extend(pointA).extend(pointB));
+    }
+
+    function locateFault() {
+      if (routeCoords.length === 0) {
+        alert("Please upload a KML or KMZ file first.");
         return;
       }
-
-      const OTDR_TO_ACTUAL_RATIO = 1.03; // Accounts for helical winding and extra slack
-      const adjustedDist = inputDist / OTDR_TO_ACTUAL_RATIO;
-
-      const fromStart = getNearestEnd(refNode) === "start";
-
-      // Compute cumulative distances
-      let cumDist = 0;
-      for (let i = 0; i < routeCoords.length - 1; i++) {
-        const idx = fromStart ? i : routeCoords.length - 2 - i;
-        const pt1 = routeCoords[idx];
-        const pt2 = routeCoords[idx + 1];
-        const segment = fromStart ? [pt1, pt2] : [pt2, pt1];
-        const dist = map.distance(segment[0], segment[1]);
-
-        if (cumDist + dist >= adjustedDist) {
-          const remaining = adjustedDist - cumDist;
-          const ratio = remaining / dist;
-          const lat = segment[0][0] + (segment[1][0] - segment[0][0]) * ratio;
-          const lon = segment[0][1] + (segment[1][1] - segment[0][1]) * ratio;
-          L.marker([lat, lon], { color: 'red' }).bindPopup(`Approx. Fault Location<br>${(inputDist / 1000).toFixed(2)} km from ${refNode}`).addTo(map).openPopup();
-          return;
-        }
-        cumDist += dist;
+      const distanceMeters = parseFloat(document.getElementById('otdrDistance').value);
+      if (isNaN(distanceMeters)) {
+        alert("Please enter a valid OTDR distance.");
+        return;
       }
-
-      alert("Distance exceeds route length.");
+      const ref = document.getElementById('refPoint').value === 'A' ? pointA : pointB;
+      const faultLocation = getPointAtDistance(ref, distanceMeters);
+      if (faultMarker) faultMarker.setMap(null);
+      faultMarker = new google.maps.Marker({
+        position: faultLocation,
+        map: map,
+        title: "Estimated Fault Location",
+        icon: { url: "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png" }
+      });
+      map.panTo(faultLocation);
     }
 
-    function getNearestEnd(refNode) {
-      const refCoord = placemarks[refNode];
-      const distToStart = map.distance(refCoord, routeCoords[0]);
-      const distToEnd = map.distance(refCoord, routeCoords[routeCoords.length - 1]);
-      return distToStart < distToEnd ? "start" : "end";
+    function getPointAtDistance(startPoint, distanceMeters) {
+      let dist = 0;
+      let coords = [...routeCoords];
+      if (startPoint === pointB) coords.reverse();
+      for (let i = 0; i < coords.length - 1; i++) {
+        const segDist = google.maps.geometry.spherical.computeDistanceBetween(
+          new google.maps.LatLng(coords[i]),
+          new google.maps.LatLng(coords[i + 1])
+        );
+        if (dist + segDist >= distanceMeters) {
+          const overshoot = distanceMeters - dist;
+          const heading = google.maps.geometry.spherical.computeHeading(
+            new google.maps.LatLng(coords[i]),
+            new google.maps.LatLng(coords[i + 1])
+          );
+          return google.maps.geometry.spherical.computeOffset(
+            new google.maps.LatLng(coords[i]),
+            overshoot,
+            heading
+          );
+        }
+        dist += segDist;
+      }
+      return coords[coords.length - 1];
     }
+
+    window.onload = initMap;
   </script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=geometry"></script>
 </body>
 </html>
