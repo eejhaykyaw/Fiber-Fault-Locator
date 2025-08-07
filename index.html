@@ -10,28 +10,42 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
   <style>
     body { margin: 0; font-family: Arial, sans-serif; }
-    #map { height: 80vh; }
+    #map { height: 100vh; width: 100%; position: relative; }
     #controls {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%; /* match map width */
+      background: rgba(255, 255, 255, 0.5); /* 50% opacity */
       padding: 10px;
-      background: #f4f4f4;
+      box-sizing: border-box;
       display: flex;
+      flex-wrap: wrap;
       gap: 10px;
       align-items: center;
+      z-index: 1000;
+    }
+    #controls button, #controls select, #controls input {
+      padding: 5px 10px;
+      border: 1px solid #888;
+      border-radius: 4px;
+      background-color: rgba(255, 255, 255, 0.8);
     }
   </style>
 </head>
 <body>
-  <div id="controls">
-    <input type="file" id="file-input" accept=".kml,.kmz">
-    <label>Reference Node:
-      <select id="node-select"></select>
-    </label>
-    <label>OTDR Distance (m):
-      <input type="number" id="distance-input" placeholder="e.g. 500" />
-    </label>
-    <button onclick="calculateFault()">Locate Fault</button>
+  <div id="map">
+    <div id="controls">
+      <input type="file" id="file-input" accept=".kml,.kmz">
+      <label>Reference Node:
+        <select id="node-select"></select>
+      </label>
+      <label>OTDR Distance (m):
+        <input type="number" id="distance-input" placeholder="e.g. 500" />
+      </label>
+      <button onclick="calculateFault()">Locate Fault</button>
+    </div>
   </div>
-  <div id="map"></div>
 
   <script>
     let map = L.map('map', { zoomControl: false }).setView([14.5995, 120.9842], 13);
