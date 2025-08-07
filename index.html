@@ -45,7 +45,8 @@
   <script src="https://unpkg.com/turf"></script>
 
   <script>
-    let map = L.map('map').setView([14.6, 121], 12);
+    // Initialize map WITHOUT zoom buttons
+    let map = L.map('map', { zoomControl: false }).setView([14.6, 121], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     let routeLine = null, pointA = null, pointB = null, faultMarker = null;
@@ -111,7 +112,8 @@
 
       const corrected = otdrDist / factor;
 
-      const line = turf.lineString(fullLineCoords.map(coord => [coord[1], coord[0]]));
+      const coords = ref === 'A' ? fullLineCoords : [...fullLineCoords].reverse();
+      const line = turf.lineString(coords.map(coord => [coord[1], coord[0]]));
       const length = turf.length(line, { units: 'meters' });
 
       if (corrected > length) {
@@ -120,12 +122,18 @@
       }
 
       const snapped = turf.along(line, corrected, { units: 'meters' });
+
+      if (!snapped || !snapped.geometry || !snapped.geometry.coordinates) {
+        alert("Failed to locate fault. Check if route path and distance are correct.");
+        return;
+      }
+
       const lat = snapped.geometry.coordinates[1];
       const lng = snapped.geometry.coordinates[0];
 
       if (faultMarker) map.removeLayer(faultMarker);
 
-      faultMarker = L.marker([lat, lng], { draggable: false })
+      faultMarker = L.marker([lat, lng])
         .addTo(map)
         .bindPopup(`
           📍 Estimated Fault<br>
