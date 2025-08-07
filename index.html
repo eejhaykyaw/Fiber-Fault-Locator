@@ -1,14 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fiber Fault Locator</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/togeojson@0.16.0/togeojson.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<style>
+  <title>Fiber Fault Locator</title>
+  <meta charset="utf-8" />
+  <style>
     body {
         margin: 0;
         font-family: Arial, sans-serif;
@@ -36,100 +31,138 @@
         padding: 6px;
         font-size: 14px;
     }
-</style>
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 </head>
 <body>
-
-<div id="map"></div>
-
-<div class="top-bar">
-    <input type="file" id="fileInput" accept=".kml,.kmz">
-    <select id="referencePoint">
+  <div id="controls">
+    <label>Upload KMZ or KML:
+      <input type="file" id="fileInput" accept=".kml,.kmz"/>
+    </label>
+    <label>Reference Node:
+      <select id="refNode">
         <option value="A">Point A</option>
         <option value="B">Point B</option>
-    </select>
-    <input type="number" id="otdrDistance" placeholder="OTDR Distance (m)">
+      </select>
+    </label>
+    <label>OTDR Distance (km):
+      <input type="number" id="otdrDistance" step="0.01"/>
+    </label>
+    <label>Correction Factor (default 1.03):
+      <input type="number" id="correctionFactor" value="1.03" step="0.01"/>
+    </label>
     <button onclick="locateFault()">Locate Fault</button>
-</div>
+  </div>
 
-<script>
-let map = L.map('map').setView([14.5995, 120.9842], 13); // Manila default
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+  <div id="map"></div>
 
-let routeCoords = [];
-let polyline;
-let pointA, pointB;
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/jszip"></script>
+  <script src="https://unpkg.com/@tmcw/togeojson"></script>
+  <script src="https://unpkg.com/turf"></script>
 
-document.getElementById('fileInput').addEventListener('change', handleFile);
+  <script>
+    // Initialize map WITHOUT zoom buttons
+    let map = L.map('map', { zoomControl: false }).setView([14.6, 121], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-function handleFile(event) {
-    const file = event.target.files[0];
-    if (!file) return;
+    let routeLine = null, pointA = null, pointB = null, faultMarker = null;
+    let fullLineCoords = [];
 
-    const reader = new FileReader();
-    if (file.name.endsWith('.kmz')) {
-        JSZip.loadAsync(file).then(zip => {
-            const kmlFile = Object.keys(zip.files).find(name => name.endsWith('.kml'));
-            zip.files[kmlFile].async('string').then(kmlText => {
-                processKML(kmlText);
-            });
-        });
-    } else {
-        reader.onload = e => processKML(e.target.result);
-        reader.readAsText(file);
+    document.getElementById('fileInput').addEventListener('change', async function (e) {
+      let file = e.target.files[0];
+      if (!file) return;
+
+      const ext = file.name.split('.').pop().toLowerCase();
+      let kmlText = '';
+
+      if (ext === 'kmz') {
+        const zip = await JSZip.loadAsync(file);
+        const kmlFile = Object.keys(zip.files).find(name => name.endsWith('.kml'));
+        kmlText = await zip.files[kmlFile].async('string');
+      } else {
+        kmlText = await file.text();
+      }
+
+      const parser = new DOMParser();
+      const kmlDom = parser.parseFromString(kmlText, 'text/xml');
+      const geojson = toGeoJSON.kml(kmlDom);
+
+      const line = geojson.features.find(f => f.geometry.type === 'LineString');
+      const points = geojson.features.filter(f => f.geometry.type === 'Point');
+
+      if (!line || points.length < 2) {
+        alert('Invalid file. Make sure it contains 1 LineString and at least 2 Point placemarks.');
+        return;
+      }
+
+      if (routeLine) map.removeLayer(routeLine);
+      if (pointA) map.removeLayer(pointA);
+      if (pointB) map.removeLayer(pointB);
+      if (faultMarker) map.removeLayer(faultMarker);
+
+      fullLineCoords = line.geometry.coordinates.map(c => [c[1], c[0]]);
+      routeLine = L.polyline(fullLineCoords, { color: 'blue' }).addTo(map);
+      map.fitBounds(routeLine.getBounds());
+
+      // Assume first two Points are Point A and B
+      pointA = L.marker([points[0].geometry.coordinates[1], points[0].geometry.coordinates[0]])
+        .addTo(map).bindPopup("Point A: " + points[0].properties.name);
+      pointB = L.marker([points[1].geometry.coordinates[1], points[1].geometry.coordinates[0]])
+        .addTo(map).bindPopup("Point B: " + points[1].properties.name);
+    });
+
+    function locateFault() {
+      if (!fullLineCoords.length) {
+        alert("Please upload a route file first.");
+        return;
+      }
+
+      const ref = document.getElementById('refNode').value;
+      const otdrDist = parseFloat(document.getElementById('otdrDistance').value) * 1000; // to meters
+      const factor = parseFloat(document.getElementById('correctionFactor').value || 1.03);
+
+      if (isNaN(otdrDist) || otdrDist <= 0) {
+        alert("Enter a valid OTDR distance.");
+        return;
+      }
+
+      const corrected = otdrDist / factor;
+
+      const coords = ref === 'A' ? fullLineCoords : [...fullLineCoords].reverse();
+      const line = turf.lineString(coords.map(coord => [coord[1], coord[0]]));
+      const length = turf.length(line, { units: 'meters' });
+
+      if (corrected > length) {
+        alert("Corrected distance is longer than route.");
+        return;
+      }
+
+      const snapped = turf.along(line, corrected, { units: 'meters' });
+
+      if (!snapped || !snapped.geometry || !snapped.geometry.coordinates) {
+        alert("Failed to locate fault. Check if route path and distance are correct.");
+        return;
+      }
+
+      const lat = snapped.geometry.coordinates[1];
+      const lng = snapped.geometry.coordinates[0];
+
+      if (faultMarker) map.removeLayer(faultMarker);
+
+      faultMarker = L.marker([lat, lng])
+        .addTo(map)
+        .bindPopup(`
+          📍 Estimated Fault<br>
+          Ref Node: Point ${ref}<br>
+          OTDR: ${otdrDist.toFixed(2)} m<br>
+          Corrected: ${corrected.toFixed(2)} m<br>
+          📌 [${lat.toFixed(6)}, ${lng.toFixed(6)}]
+        `)
+        .openPopup();
+
+      map.setView([lat, lng], 16);
     }
-}
-
-function processKML(kmlText) {
-    const parser = new DOMParser();
-    const kml = parser.parseFromString(kmlText, 'text/xml');
-    const geojson = toGeoJSON.kml(kml);
-
-    if (polyline) map.removeLayer(polyline);
-
-    routeCoords = geojson.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-    polyline = L.polyline(routeCoords, { color: 'blue', weight: 4 }).addTo(map);
-    map.fitBounds(polyline.getBounds());
-
-    let startCoord = routeCoords[0];
-    let endCoord = routeCoords[routeCoords.length - 1];
-
-    if (pointA) map.removeLayer(pointA);
-    if (pointB) map.removeLayer(pointB);
-
-    pointA = L.marker(startCoord).addTo(map).bindPopup("Point A");
-    pointB = L.marker(endCoord).addTo(map).bindPopup("Point B");
-}
-
-function locateFault() {
-    let distance = parseFloat(document.getElementById('otdrDistance').value);
-    if (isNaN(distance) || routeCoords.length === 0) return alert("Please upload a route and enter a valid distance.");
-
-    let ref = document.getElementById('referencePoint').value;
-    let coords = (ref === 'A') ? routeCoords : [...routeCoords].reverse();
-
-    let totalDist = 0;
-    for (let i = 0; i < coords.length - 1; i++) {
-        let segDist = map.distance(coords[i], coords[i + 1]);
-        if (totalDist + segDist >= distance) {
-            let ratio = (distance - totalDist) / segDist;
-            let lat = coords[i][0] + (coords[i + 1][0] - coords[i][0]) * ratio;
-            let lng = coords[i][1] + (coords[i + 1][1] - coords[i][1]) * ratio;
-
-            L.marker([lat, lng], { icon: L.icon({
-                iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-                iconSize: [32, 32],
-                iconAnchor: [16, 32]
-            }) }).addTo(map).bindPopup("Approx. Fault Location").openPopup();
-            return;
-        }
-        totalDist += segDist;
-    }
-    alert("Distance exceeds route length.");
-}
-</script>
-
+  </script>
 </body>
 </html>
