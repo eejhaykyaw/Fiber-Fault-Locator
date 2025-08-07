@@ -11,13 +11,35 @@
   <style>
     body { margin: 0; font-family: Arial, sans-serif; }
     #map { height: 80vh; }
-    #controls {
-      padding: 10px;
-      background: #f4f4f4;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
+#controls {
+  position: sticky; /* keeps it on top when scrolling */
+  top: 0;
+  padding: 12px 18px;
+  background: rgba(255, 255, 255, 0.85); /* slight transparency */
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15); /* soft shadow */
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  z-index: 1000; /* stays above map */
+  backdrop-filter: blur(4px); /* glassy effect */
+}
+input, select, button {
+  padding: 6px 10px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+button {
+  background: #1976d2;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+button:hover {
+  background: #125ca1;
+}
   </style>
 </head>
 <body>
