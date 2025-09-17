@@ -167,7 +167,14 @@ button:hover {
           const ratio = remaining / dist;
           const lat = segment[0][0] + (segment[1][0] - segment[0][0]) * ratio;
           const lon = segment[0][1] + (segment[1][1] - segment[0][1]) * ratio;
-          L.marker([lat, lon], { color: 'red' }).bindPopup(`Approx. Fault Location<br>${(inputDist / 1000).toFixed(2)} km from ${refNode}`).addTo(map).openPopup();
+          L.marker([lat, lon], { color: 'red' })
+  .bindPopup(
+    `Approx. Fault Location<br>
+     ${(inputDist / 1000).toFixed(2)} km from ${refNode}<br>
+     📌 Coordinates: ${lat.toFixed(6)}, ${lon.toFixed(6)}`
+  )
+  .addTo(map)
+  .openPopup();
           return;
         }
         cumDist += dist;
