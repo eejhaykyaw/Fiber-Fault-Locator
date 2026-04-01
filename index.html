@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#101216">
+  <link rel="apple-touch-icon" href="./icon-192.png">
   <meta charset="utf-8">
   <title>Fiber Fault Locator Pro</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2091,6 +2094,12 @@
 
   window.removePinById = removePinById;
   window.zoomToPin = zoomToPin;
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js');
+  });
+}
 </script>
 </body>
 </html>
