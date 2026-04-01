@@ -15,6 +15,7 @@
       --bg: #101216;
       --panel: #161a20;
       --panel2: #1d232c;
+      --panel3: #222a34;
       --text: #e8edf3;
       --muted: #aab4c0;
       --green: #36c275;
@@ -22,12 +23,14 @@
       --orange: #ffb347;
       --blue: #4ea1ff;
       --border: #2a3340;
+      --shadow: 0 10px 28px rgba(0,0,0,0.35);
     }
 
     * { box-sizing: border-box; }
 
-    body {
+    html, body {
       margin: 0;
+      height: 100%;
       font-family: Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
@@ -37,9 +40,10 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
+      overflow: hidden;
     }
 
-    #topbar {
+    #desktop-topbar {
       background: var(--panel);
       border-bottom: 1px solid var(--border);
       padding: 10px;
@@ -47,25 +51,39 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
+      z-index: 20;
     }
 
-    #topbar input,
-    #topbar select,
-    #topbar button {
+    .control-input,
+    #desktop-topbar input,
+    #desktop-topbar select,
+    #desktop-topbar button,
+    .panel-content input,
+    .panel-content select,
+    .panel-content button,
+    .mobile-bar button {
       padding: 7px 8px;
       font-size: 13px;
-      border-radius: 6px;
+      border-radius: 8px;
       border: 1px solid var(--border);
       background: var(--panel2);
       color: var(--text);
     }
 
-    #topbar button {
+    button {
       cursor: pointer;
     }
 
-    #topbar button:hover {
+    button:hover {
       filter: brightness(1.08);
+    }
+
+    .small { width: 95px; }
+    .medium { width: 145px; }
+    .wide { min-width: 220px; }
+
+    .hidden {
+      display: none !important;
     }
 
     #info {
@@ -76,13 +94,15 @@
       font-size: 13px;
       white-space: pre-line;
       min-height: 44px;
+      z-index: 10;
     }
 
     #main {
       flex: 1;
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(260px, 320px) 1fr;
+      grid-template-columns: minmax(270px, 340px) 1fr;
+      overflow: hidden;
     }
 
     #sidepanel {
@@ -101,13 +121,13 @@
     .section h3 {
       margin: 0 0 8px 0;
       font-size: 14px;
-      color: var(--text);
     }
 
     .section p {
       margin: 4px 0;
       font-size: 12px;
       color: var(--muted);
+      white-space: pre-line;
     }
 
     #fault-list {
@@ -120,7 +140,7 @@
       background: var(--panel2);
       border: 1px solid var(--border);
       border-left: 4px solid var(--red);
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 8px;
       font-size: 12px;
     }
@@ -146,31 +166,19 @@
       font-size: 12px;
       border-radius: 6px;
       border: 1px solid var(--border);
-      background: #222a34;
+      background: var(--panel3);
       color: var(--text);
-      cursor: pointer;
+    }
+
+    #map-wrap {
+      position: relative;
+      min-height: 0;
+      min-width: 0;
     }
 
     #map {
       width: 100%;
       height: 100%;
-      min-height: 0;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    .small {
-      width: 95px;
-    }
-
-    .medium {
-      width: 145px;
-    }
-
-    .wide {
-      min-width: 220px;
     }
 
     .popup-actions {
@@ -190,22 +198,164 @@
       cursor: pointer;
     }
 
-    @media (max-width: 900px) {
+    /* Mobile UI */
+    #mobile-bar {
+      display: none;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 8px;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 30;
+    }
+
+    #mobile-file {
+      max-width: 120px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    #mobile-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    #mobile-actions button {
+      padding: 8px 10px;
+      font-size: 12px;
+      min-width: 72px;
+    }
+
+    .drawer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      max-height: 78vh;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      z-index: 1000;
+      transform: translateY(102%);
+      transition: transform 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+    }
+
+    .drawer.open {
+      transform: translateY(0);
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+    }
+
+    .drawer-header h3 {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .drawer-close {
+      background: var(--panel3);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+    }
+
+    .drawer-body {
+      overflow: auto;
+      padding: 12px;
+    }
+
+    .panel-group {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .panel-group h4 {
+      margin: 0 0 8px 0;
+      font-size: 13px;
+    }
+
+    .panel-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .panel-row.single {
+      grid-template-columns: 1fr;
+    }
+
+    .panel-row label {
+      font-size: 12px;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .panel-row > div {
+      min-width: 0;
+    }
+
+    .panel-content input,
+    .panel-content select,
+    .panel-content button {
+      width: 100%;
+    }
+
+    .overlay-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 999;
+      display: none;
+    }
+
+    .overlay-backdrop.show {
+      display: block;
+    }
+
+    @media (max-width: 980px) {
+      #desktop-topbar {
+        display: none;
+      }
+
+      #mobile-bar {
+        display: flex;
+      }
+
       #main {
         grid-template-columns: 1fr;
-        grid-template-rows: 240px 1fr;
       }
 
       #sidepanel {
-        border-right: none;
-        border-bottom: 1px solid var(--border);
+        display: none;
       }
     }
   </style>
 </head>
 <body>
 <div id="app">
-  <div id="topbar">
+  <div id="desktop-topbar">
     <input type="file" id="file-input" accept=".kml,.kmz">
 
     <select id="route-mode" class="medium">
@@ -244,6 +394,15 @@
     <button type="button" id="export-kml-btn">Export KML</button>
   </div>
 
+  <div id="mobile-bar">
+    <div id="mobile-file">Map-first mobile view</div>
+    <div id="mobile-actions">
+      <button type="button" id="open-tools-btn">Tools</button>
+      <button type="button" id="mobile-locate-btn">Locate</button>
+      <button type="button" id="open-pins-btn">Pins</button>
+    </div>
+  </div>
+
   <div id="info">No file loaded.</div>
 
   <div id="main">
@@ -260,7 +419,137 @@
       </div>
     </div>
 
-    <div id="map"></div>
+    <div id="map-wrap">
+      <div id="map"></div>
+    </div>
+  </div>
+</div>
+
+<div id="drawer-backdrop" class="overlay-backdrop"></div>
+
+<div id="tools-drawer" class="drawer">
+  <div class="drawer-header">
+    <h3>Tools</h3>
+    <button type="button" class="drawer-close" data-close-drawer="tools-drawer">Close</button>
+  </div>
+  <div class="drawer-body panel-content">
+    <div class="panel-group">
+      <h4>File</h4>
+      <div class="panel-row single">
+        <div>
+          <label for="mobile-file-input">Load KML / KMZ</label>
+          <input type="file" id="mobile-file-input" accept=".kml,.kmz">
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-group">
+      <h4>Route</h4>
+      <div class="panel-row">
+        <div>
+          <label for="m-route-mode">Route Mode</label>
+          <select id="m-route-mode">
+            <option value="auto">Auto Best Route</option>
+            <option value="single">Select Segment</option>
+            <option value="merge">Merge Connected Segments</option>
+          </select>
+        </div>
+        <div id="m-segment-wrap" class="hidden">
+          <label for="m-segment-select">Segment</label>
+          <select id="m-segment-select">
+            <option value="">Select Segment</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel-row single">
+        <div>
+          <label for="m-node-select">Reference Node</label>
+          <select id="m-node-select">
+            <option value="">Select Reference Node</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-group">
+      <h4>Locate Fault</h4>
+      <div class="panel-row">
+        <div>
+          <label for="m-distance">OTDR Distance (km)</label>
+          <input type="number" id="m-distance" placeholder="OTDR km" min="0" step="0.01">
+        </div>
+        <div>
+          <label for="m-ratio">Ratio</label>
+          <input type="number" id="m-ratio" value="1.03" min="0.01" step="0.01">
+        </div>
+      </div>
+
+      <div class="panel-row">
+        <div>
+          <label for="m-direction">Direction</label>
+          <select id="m-direction">
+            <option value="auto">Auto Direction</option>
+            <option value="start">From Start</option>
+            <option value="end">From End</option>
+          </select>
+        </div>
+        <div style="display:flex; align-items:end;">
+          <button type="button" id="m-locate-fault-btn">Locate Fault</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-group">
+      <h4>Manual Coordinate</h4>
+      <div class="panel-row single">
+        <div>
+          <label for="m-coord-input">Coordinates</label>
+          <input type="text" id="m-coord-input" placeholder="Lat, Lon">
+        </div>
+      </div>
+      <div class="panel-row">
+        <div>
+          <label for="m-coord-label">Label</label>
+          <input type="text" id="m-coord-label" placeholder="Manual label">
+        </div>
+        <div style="display:flex; align-items:end;">
+          <button type="button" id="m-plot-coord-btn">Plot Coordinate</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-group">
+      <h4>Actions</h4>
+      <div class="panel-row">
+        <div><button type="button" id="m-toggle-faults-btn">Hide Faults</button></div>
+        <div><button type="button" id="m-export-kml-btn">Export KML</button></div>
+      </div>
+      <div class="panel-row">
+        <div><button type="button" id="m-clear-faults-btn">Clear Faults</button></div>
+        <div><button type="button" id="m-clear-manuals-btn">Clear Manual</button></div>
+      </div>
+      <div class="panel-row single">
+        <div><button type="button" id="m-clear-all-pins-btn">Clear All Pins</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="pins-drawer" class="drawer">
+  <div class="drawer-header">
+    <h3>Pins</h3>
+    <button type="button" class="drawer-close" data-close-drawer="pins-drawer">Close</button>
+  </div>
+  <div class="drawer-body">
+    <div class="section" style="padding:0; border-bottom:none;">
+      <h3 style="padding:0; margin-bottom:8px;">Active Route</h3>
+      <p id="m-route-summary">No active route.</p>
+    </div>
+    <div style="margin-top:12px;">
+      <h3 style="margin:0 0 8px 0; font-size:14px;">Fault List Panel</h3>
+      <div id="mobile-fault-list"></div>
+    </div>
   </div>
 </div>
 
@@ -291,30 +580,161 @@
   let manualIdCounter = 1;
   let faultsVisible = true;
 
-  const fileInput = document.getElementById('file-input');
-  const routeModeEl = document.getElementById('route-mode');
-  const segmentSelectEl = document.getElementById('segment-select');
-  const nodeSelectEl = document.getElementById('node-select');
-  const distanceEl = document.getElementById('distance');
-  const ratioEl = document.getElementById('ratio');
-  const directionEl = document.getElementById('direction');
-  const coordInputEl = document.getElementById('coord-input');
-  const coordLabelEl = document.getElementById('coord-label');
   const infoEl = document.getElementById('info');
   const routeSummaryEl = document.getElementById('route-summary');
+  const mobileRouteSummaryEl = document.getElementById('m-route-summary');
   const faultListEl = document.getElementById('fault-list');
+  const mobileFaultListEl = document.getElementById('mobile-fault-list');
   const toggleFaultsBtn = document.getElementById('toggle-faults-btn');
+  const mToggleFaultsBtn = document.getElementById('m-toggle-faults-btn');
 
-  fileInput.addEventListener('change', onFileSelected);
-  routeModeEl.addEventListener('change', onRouteModeChanged);
-  segmentSelectEl.addEventListener('change', onSegmentChanged);
-  document.getElementById('locate-fault-btn').addEventListener('click', locateFault);
-  document.getElementById('plot-coord-btn').addEventListener('click', plotManualCoordinate);
-  document.getElementById('toggle-faults-btn').addEventListener('click', toggleFaultsVisibility);
-  document.getElementById('clear-faults-btn').addEventListener('click', clearAllFaults);
-  document.getElementById('clear-manuals-btn').addEventListener('click', clearAllManualPins);
-  document.getElementById('clear-all-pins-btn').addEventListener('click', clearAllPins);
-  document.getElementById('export-kml-btn').addEventListener('click', exportKML);
+  const desktop = {
+    fileInput: document.getElementById('file-input'),
+    routeMode: document.getElementById('route-mode'),
+    segmentSelect: document.getElementById('segment-select'),
+    nodeSelect: document.getElementById('node-select'),
+    distance: document.getElementById('distance'),
+    ratio: document.getElementById('ratio'),
+    direction: document.getElementById('direction'),
+    coordInput: document.getElementById('coord-input'),
+    coordLabel: document.getElementById('coord-label'),
+    locateBtn: document.getElementById('locate-fault-btn'),
+    plotBtn: document.getElementById('plot-coord-btn'),
+    clearFaultsBtn: document.getElementById('clear-faults-btn'),
+    clearManualsBtn: document.getElementById('clear-manuals-btn'),
+    clearAllPinsBtn: document.getElementById('clear-all-pins-btn'),
+    exportBtn: document.getElementById('export-kml-btn')
+  };
+
+  const mobile = {
+    fileInput: document.getElementById('mobile-file-input'),
+    routeMode: document.getElementById('m-route-mode'),
+    segmentSelect: document.getElementById('m-segment-select'),
+    segmentWrap: document.getElementById('m-segment-wrap'),
+    nodeSelect: document.getElementById('m-node-select'),
+    distance: document.getElementById('m-distance'),
+    ratio: document.getElementById('m-ratio'),
+    direction: document.getElementById('m-direction'),
+    coordInput: document.getElementById('m-coord-input'),
+    coordLabel: document.getElementById('m-coord-label'),
+    locateBtn: document.getElementById('m-locate-fault-btn'),
+    plotBtn: document.getElementById('m-plot-coord-btn'),
+    clearFaultsBtn: document.getElementById('m-clear-faults-btn'),
+    clearManualsBtn: document.getElementById('m-clear-manuals-btn'),
+    clearAllPinsBtn: document.getElementById('m-clear-all-pins-btn'),
+    exportBtn: document.getElementById('m-export-kml-btn')
+  };
+
+  const mobileBar = {
+    openToolsBtn: document.getElementById('open-tools-btn'),
+    openPinsBtn: document.getElementById('open-pins-btn'),
+    locateBtn: document.getElementById('mobile-locate-btn')
+  };
+
+  const drawers = {
+    backdrop: document.getElementById('drawer-backdrop'),
+    tools: document.getElementById('tools-drawer'),
+    pins: document.getElementById('pins-drawer')
+  };
+
+  function bindEvents() {
+    desktop.fileInput.addEventListener('change', onFileSelected);
+    mobile.fileInput.addEventListener('change', onFileSelected);
+
+    desktop.routeMode.addEventListener('change', onRouteModeChanged);
+    mobile.routeMode.addEventListener('change', onRouteModeChanged);
+
+    desktop.segmentSelect.addEventListener('change', onSegmentChanged);
+    mobile.segmentSelect.addEventListener('change', onSegmentChanged);
+
+    desktop.locateBtn.addEventListener('click', locateFault);
+    mobile.locateBtn.addEventListener('click', locateFault);
+    mobileBar.locateBtn.addEventListener('click', () => {
+      if (isMobileView()) {
+        openDrawer('tools-drawer');
+      }
+    });
+
+    desktop.plotBtn.addEventListener('click', plotManualCoordinate);
+    mobile.plotBtn.addEventListener('click', plotManualCoordinate);
+
+    toggleFaultsBtn.addEventListener('click', toggleFaultsVisibility);
+    mToggleFaultsBtn.addEventListener('click', toggleFaultsVisibility);
+
+    desktop.clearFaultsBtn.addEventListener('click', clearAllFaults);
+    mobile.clearFaultsBtn.addEventListener('click', clearAllFaults);
+
+    desktop.clearManualsBtn.addEventListener('click', clearAllManualPins);
+    mobile.clearManualsBtn.addEventListener('click', clearAllManualPins);
+
+    desktop.clearAllPinsBtn.addEventListener('click', clearAllPins);
+    mobile.clearAllPinsBtn.addEventListener('click', clearAllPins);
+
+    desktop.exportBtn.addEventListener('click', exportKML);
+    mobile.exportBtn.addEventListener('click', exportKML);
+
+    mobileBar.openToolsBtn.addEventListener('click', () => openDrawer('tools-drawer'));
+    mobileBar.openPinsBtn.addEventListener('click', () => openDrawer('pins-drawer'));
+
+    drawers.backdrop.addEventListener('click', closeDrawers);
+    document.querySelectorAll('[data-close-drawer]').forEach(btn => {
+      btn.addEventListener('click', closeDrawers);
+    });
+
+    window.addEventListener('resize', () => {
+      if (!isMobileView()) {
+        closeDrawers();
+      }
+    });
+  }
+
+  bindEvents();
+  syncAllControls();
+
+  function isMobileView() {
+    return window.innerWidth <= 980;
+  }
+
+  function openDrawer(id) {
+    if (!isMobileView()) return;
+    closeDrawers();
+    drawers.backdrop.classList.add('show');
+    document.getElementById(id).classList.add('open');
+  }
+
+  function closeDrawers() {
+    drawers.backdrop.classList.remove('show');
+    drawers.tools.classList.remove('open');
+    drawers.pins.classList.remove('open');
+  }
+
+  function syncAllControls(source = null) {
+    const sourceSet = source === 'mobile' ? mobile : desktop;
+
+    const values = {
+      routeMode: sourceSet.routeMode.value,
+      segmentSelect: sourceSet.segmentSelect.value,
+      nodeSelect: sourceSet.nodeSelect.value,
+      distance: sourceSet.distance.value,
+      ratio: sourceSet.ratio.value,
+      direction: sourceSet.direction.value,
+      coordInput: sourceSet.coordInput.value,
+      coordLabel: sourceSet.coordLabel.value
+    };
+
+    [desktop, mobile].forEach(set => {
+      set.routeMode.value = values.routeMode;
+      set.segmentSelect.value = values.segmentSelect;
+      set.nodeSelect.value = values.nodeSelect;
+      set.distance.value = values.distance;
+      set.ratio.value = values.ratio;
+      set.direction.value = values.direction;
+      set.coordInput.value = values.coordInput;
+      set.coordLabel.value = values.coordLabel;
+    });
+
+    toggleSegmentSelector();
+  }
 
   async function onFileSelected(e) {
     const file = e.target.files[0];
@@ -346,10 +766,15 @@
       }
 
       processKML(text);
+      closeDrawers();
     } catch (err) {
       infoEl.textContent = 'Error loading file.';
       routeSummaryEl.textContent = 'No active route.';
+      mobileRouteSummaryEl.textContent = 'No active route.';
       alert('Error loading file: ' + err.message);
+    } finally {
+      desktop.fileInput.value = '';
+      mobile.fileInput.value = '';
     }
   }
 
@@ -369,30 +794,50 @@
     faultIdCounter = 1;
     manualIdCounter = 1;
     faultsVisible = true;
-    toggleFaultsBtn.textContent = 'Hide Faults';
 
-    nodeSelectEl.innerHTML = '<option value="">Select Reference Node</option>';
-    segmentSelectEl.innerHTML = '<option value="">Select Segment</option>';
+    desktop.nodeSelect.innerHTML = '<option value="">Select Reference Node</option>';
+    mobile.nodeSelect.innerHTML = '<option value="">Select Reference Node</option>';
+    desktop.segmentSelect.innerHTML = '<option value="">Select Segment</option>';
+    mobile.segmentSelect.innerHTML = '<option value="">Select Segment</option>';
 
+    desktop.routeMode.value = 'auto';
+    mobile.routeMode.value = 'auto';
+    desktop.distance.value = '';
+    mobile.distance.value = '';
+    desktop.ratio.value = '1.03';
+    mobile.ratio.value = '1.03';
+    desktop.direction.value = 'auto';
+    mobile.direction.value = 'auto';
+    desktop.coordInput.value = '';
+    mobile.coordInput.value = '';
+    desktop.coordLabel.value = '';
+    mobile.coordLabel.value = '';
+
+    updateFaultVisibilityButtons();
     updateFaultListPanel();
     updateRouteSummary('No active route.');
     infoEl.textContent = 'No file loaded.';
+    toggleSegmentSelector();
   }
 
-  function onRouteModeChanged() {
-    toggleSegmentSelector();
+  function onRouteModeChanged(e) {
+    const source = e.target.id.startsWith('m-') ? 'mobile' : 'desktop';
+    syncAllControls(source);
     refreshActiveRoute(false);
   }
 
-  function onSegmentChanged() {
-    if (routeModeEl.value === 'single') {
+  function onSegmentChanged(e) {
+    const source = e.target.id.startsWith('m-') ? 'mobile' : 'desktop';
+    syncAllControls(source);
+    if (desktop.routeMode.value === 'single') {
       refreshActiveRoute(false);
     }
   }
 
   function toggleSegmentSelector() {
-    const show = routeModeEl.value === 'single';
-    segmentSelectEl.classList.toggle('hidden', !show);
+    const show = desktop.routeMode.value === 'single';
+    desktop.segmentSelect.classList.toggle('hidden', !show);
+    mobile.segmentWrap.classList.toggle('hidden', !show);
   }
 
   function processKML(text) {
@@ -455,11 +900,6 @@
         const coord = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
         placemarks[name] = coord;
         L.marker(coord).addTo(nodeLayer).bindPopup(escapeHtml(name));
-
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = name;
-        nodeSelectEl.appendChild(opt);
       }
     });
 
@@ -467,19 +907,45 @@
       throw new Error('No route segments found.');
     }
 
+    populateNodeSelectors();
     populateSegmentSelector();
     toggleSegmentSelector();
     refreshActiveRoute(true, pointCount);
   }
 
+  function populateNodeSelectors() {
+    desktop.nodeSelect.innerHTML = '<option value="">Select Reference Node</option>';
+    mobile.nodeSelect.innerHTML = '<option value="">Select Reference Node</option>';
+
+    Object.keys(placemarks).forEach(name => {
+      const opt1 = document.createElement('option');
+      opt1.value = name;
+      opt1.textContent = name;
+      desktop.nodeSelect.appendChild(opt1);
+
+      const opt2 = document.createElement('option');
+      opt2.value = name;
+      opt2.textContent = name;
+      mobile.nodeSelect.appendChild(opt2);
+    });
+  }
+
   function populateSegmentSelector() {
-    segmentSelectEl.innerHTML = '<option value="">Select Segment</option>';
+    desktop.segmentSelect.innerHTML = '<option value="">Select Segment</option>';
+    mobile.segmentSelect.innerHTML = '<option value="">Select Segment</option>';
 
     rawSegments.forEach((seg, idx) => {
-      const opt = document.createElement('option');
-      opt.value = String(idx);
-      opt.textContent = `${seg.name} — ${getRouteLength(seg.coords).toFixed(2)} km`;
-      segmentSelectEl.appendChild(opt);
+      const label = `${seg.name} — ${getRouteLength(seg.coords).toFixed(2)} km`;
+
+      const opt1 = document.createElement('option');
+      opt1.value = String(idx);
+      opt1.textContent = label;
+      desktop.segmentSelect.appendChild(opt1);
+
+      const opt2 = document.createElement('option');
+      opt2.value = String(idx);
+      opt2.textContent = label;
+      mobile.segmentSelect.appendChild(opt2);
     });
   }
 
@@ -494,11 +960,11 @@
       return;
     }
 
-    const mode = routeModeEl.value;
+    const mode = desktop.routeMode.value;
     let result = null;
 
     if (mode === 'single') {
-      const selectedIndex = segmentSelectEl.value;
+      const selectedIndex = desktop.segmentSelect.value;
       if (selectedIndex === '') {
         routeCoords = [];
         currentRouteMeta = null;
@@ -547,7 +1013,7 @@
     const totalLen = getRouteLength(routeCoords).toFixed(2);
     let info = `Route loaded | Mode: ${formatModeLabel(currentRouteMeta.mode)} | Length: ${totalLen} km`;
     if (pointCount !== null) {
-      info += `\nNodes: ${pointCount} | Segments: ${rawSegments.length}`;
+      info += `\nNodes: ${Object.keys(placemarks).length} | Segments: ${rawSegments.length}`;
     }
     if (currentRouteMeta.mode === 'single') {
       info += `\nSelected Segment: ${currentRouteMeta.segmentName}`;
@@ -572,20 +1038,22 @@
 
   function locateFault() {
     try {
+      syncAllControls(isMobileView() ? 'mobile' : 'desktop');
+
       if (rawSegments.length === 0) {
         alert('Load a KML/KMZ first.');
         return;
       }
 
-      const nodeName = nodeSelectEl.value;
+      const nodeName = desktop.nodeSelect.value;
       if (!nodeName) {
         alert('Select a reference node.');
         return;
       }
 
-      const inputDist = parseFloat(distanceEl.value);
-      const ratio = parseFloat(ratioEl.value);
-      const direction = directionEl.value;
+      const inputDist = parseFloat(desktop.distance.value);
+      const ratio = parseFloat(desktop.ratio.value);
+      const direction = desktop.direction.value;
 
       if (Number.isNaN(inputDist) || inputDist < 0) {
         alert('Enter a valid OTDR distance.');
@@ -615,7 +1083,7 @@
         return;
       }
 
-      if (routeModeEl.value === 'single' && refProjection.distanceMeters > NODE_NEAR_ROUTE_TOLERANCE_METERS) {
+      if (desktop.routeMode.value === 'single' && refProjection.distanceMeters > NODE_NEAR_ROUTE_TOLERANCE_METERS) {
         alert('Reference node is not on or near the selected segment.');
         return;
       }
@@ -642,7 +1110,7 @@
       const directDistanceFromRefNodeKm = map.distance(nodeCoord, faultPoint) / 1000;
 
       const id = 'fault-' + (faultIdCounter++);
-      const title = 'Fault ' + faultRecords.length + 1;
+      const title = 'Fault ' + (faultRecords.length + 1);
 
       const record = {
         id,
@@ -683,6 +1151,8 @@
       map.setView([record.lat, record.lon], 17);
       updateFaultListPanel();
       updateInfoAfterPin(record);
+
+      if (isMobileView()) closeDrawers();
     } catch (err) {
       alert('Locate fault failed: ' + err.message);
     }
@@ -690,24 +1160,26 @@
 
   function plotManualCoordinate() {
     try {
+      syncAllControls(isMobileView() ? 'mobile' : 'desktop');
+
       if (rawSegments.length === 0) {
         alert('Load a KML/KMZ first.');
         return;
       }
 
-      const nodeName = nodeSelectEl.value;
+      const nodeName = desktop.nodeSelect.value;
       if (!nodeName) {
         alert('Select a reference node first.');
         return;
       }
 
-      const parsed = parseLatLon(coordInputEl.value);
+      const parsed = parseLatLon(desktop.coordInput.value);
       if (!parsed) {
         alert('Enter coordinates as: lat, lon');
         return;
       }
 
-      const label = coordLabelEl.value.trim() || ('Manual Point ' + manualIdCounter);
+      const label = desktop.coordLabel.value.trim() || ('Manual Point ' + manualIdCounter);
       const manualCoord = [parsed.lat, parsed.lon];
       const nodeCoord = placemarks[nodeName];
 
@@ -723,7 +1195,7 @@
 
       const refProjection = projectPointOntoRoute(routeCoords, nodeCoord);
       if (!refProjection) {
-        alert('Could not align reference node to active route.');
+        alert('Could not align reference node to route.');
         return;
       }
 
@@ -777,18 +1249,22 @@
       updateFaultListPanel();
       updateInfoAfterPin(record);
 
-      coordInputEl.value = '';
-      coordLabelEl.value = '';
+      desktop.coordInput.value = '';
+      mobile.coordInput.value = '';
+      desktop.coordLabel.value = '';
+      mobile.coordLabel.value = '';
+
+      if (isMobileView()) closeDrawers();
     } catch (err) {
       alert('Plot coordinate failed: ' + err.message);
     }
   }
 
   function buildRouteForCurrentSelection(preferredPoint) {
-    const mode = routeModeEl.value;
+    const mode = desktop.routeMode.value;
 
     if (mode === 'single') {
-      const selectedIndex = segmentSelectEl.value;
+      const selectedIndex = desktop.segmentSelect.value;
       if (selectedIndex === '') {
         throw new Error('Select a segment first.');
       }
@@ -844,7 +1320,13 @@
       }
     });
 
-    toggleFaultsBtn.textContent = faultsVisible ? 'Hide Faults' : 'Show Faults';
+    updateFaultVisibilityButtons();
+  }
+
+  function updateFaultVisibilityButtons() {
+    const label = faultsVisible ? 'Hide Faults' : 'Show Faults';
+    toggleFaultsBtn.textContent = label;
+    mToggleFaultsBtn.textContent = label;
   }
 
   function clearAllFaults() {
@@ -892,21 +1374,24 @@
     if (!record) return;
     map.setView([record.lat, record.lon], 18);
     if (record.marker) record.marker.openPopup();
+    closeDrawers();
   }
 
   function updateFaultListPanel() {
     const all = [...faultRecords, ...manualRecords];
+    const emptyHtml = '<p style="color:#aab4c0; font-size:12px; margin:0;">No plotted results yet.</p>';
+
     faultListEl.innerHTML = '';
+    mobileFaultListEl.innerHTML = '';
 
     if (all.length === 0) {
-      faultListEl.innerHTML = '<p style="color:#aab4c0; font-size:12px; margin:0;">No plotted results yet.</p>';
+      faultListEl.innerHTML = emptyHtml;
+      mobileFaultListEl.innerHTML = emptyHtml;
       return;
     }
 
     all.forEach(record => {
-      const div = document.createElement('div');
-      div.className = 'list-item ' + (record.type === 'manual' ? 'manual' : '');
-      div.innerHTML = `
+      const html = `
         <div class="title">${escapeHtml(record.title)} ${record.type === 'manual' ? '(Manual)' : '(Fault)'}</div>
         <div>Ref Node: ${escapeHtml(record.refNode)}</div>
         <div>Lat/Lon: ${record.lat.toFixed(6)}, ${record.lon.toFixed(6)}</div>
@@ -918,7 +1403,16 @@
           <button onclick="removePinById('${record.id}')">Remove</button>
         </div>
       `;
-      faultListEl.appendChild(div);
+
+      const div1 = document.createElement('div');
+      div1.className = 'list-item ' + (record.type === 'manual' ? 'manual' : '');
+      div1.innerHTML = html;
+      faultListEl.appendChild(div1);
+
+      const div2 = document.createElement('div');
+      div2.className = 'list-item ' + (record.type === 'manual' ? 'manual' : '');
+      div2.innerHTML = html;
+      mobileFaultListEl.appendChild(div2);
     });
   }
 
@@ -965,8 +1459,6 @@
         return;
       }
 
-      const allPins = [...faultRecords, ...manualRecords];
-
       const parts = [];
       parts.push('<?xml version="1.0" encoding="UTF-8"?>');
       parts.push('<kml xmlns="http://www.opengis.net/kml/2.2">');
@@ -988,7 +1480,6 @@
         </Style>
       `);
 
-      // Original segments
       parts.push('<Folder><name>Original Route Segments</name>');
       rawSegments.forEach(seg => {
         parts.push('<Placemark>');
@@ -1001,7 +1492,6 @@
       });
       parts.push('</Folder>');
 
-      // Active route
       if (routeCoords.length >= 2) {
         parts.push('<Folder><name>Active Route</name>');
         parts.push('<Placemark>');
@@ -1014,7 +1504,6 @@
         parts.push('</Folder>');
       }
 
-      // Nodes
       parts.push('<Folder><name>Reference Nodes</name>');
       Object.entries(placemarks).forEach(([name, coord]) => {
         parts.push('<Placemark>');
@@ -1024,7 +1513,6 @@
       });
       parts.push('</Folder>');
 
-      // Faults
       parts.push('<Folder><name>Fault Results</name>');
       faultRecords.forEach(r => {
         parts.push('<Placemark>');
@@ -1036,7 +1524,6 @@
       });
       parts.push('</Folder>');
 
-      // Manual coordinates
       parts.push('<Folder><name>Manual Coordinates</name>');
       manualRecords.forEach(r => {
         parts.push('<Placemark>');
@@ -1058,6 +1545,8 @@
       a.click();
       a.remove();
       URL.revokeObjectURL(a.href);
+
+      if (isMobileView()) closeDrawers();
     } catch (err) {
       alert('Export failed: ' + err.message);
     }
@@ -1090,6 +1579,7 @@
 
   function updateRouteSummary(text) {
     routeSummaryEl.textContent = text;
+    mobileRouteSummaryEl.textContent = text;
   }
 
   function safeSegmentName(name, fallbackNumber) {
@@ -1599,7 +2089,6 @@
     return escapeHtml(str);
   }
 
-  // expose for popup/list buttons
   window.removePinById = removePinById;
   window.zoomToPin = zoomToPin;
 </script>
