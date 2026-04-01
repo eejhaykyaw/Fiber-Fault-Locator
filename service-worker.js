@@ -1,8 +1,9 @@
-const CACHE_NAME = 'fiber-fault-locator-v1';
+const CACHE_NAME = 'fiber-fault-locator-v3';
 const URLS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
+  './service-worker.js',
   './icon-192.png',
   './icon-512.png',
   'https://unpkg.com/leaflet/dist/leaflet.css',
