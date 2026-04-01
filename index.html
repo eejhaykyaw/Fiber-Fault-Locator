@@ -1,196 +1,1607 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Fiber Fault Locator</title>
+  <meta charset="utf-8">
+  <title>Fiber Fault Locator Pro</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/togeojson"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@tmcw/togeojson"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; }
-    #map { height: calc(100vh - 100px); }
-#controls {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 12px 18px;
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  display: flex;
-  flex-wrap: wrap;   /* allow wrapping */
-  gap: 12px;
-  align-items: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
-}
+    :root {
+      --bg: #101216;
+      --panel: #161a20;
+      --panel2: #1d232c;
+      --text: #e8edf3;
+      --muted: #aab4c0;
+      --green: #36c275;
+      --red: #ff5a5f;
+      --orange: #ffb347;
+      --blue: #4ea1ff;
+      --border: #2a3340;
+    }
 
-/* Fields resize nicely */
-#controls input,
-#controls select,
-#controls button {
-  flex: 1 1 auto;
-  min-width: 150px;  /* prevents shrinking too much */
-}
+    * { box-sizing: border-box; }
 
-/* ✅ On small screens, stack vertically */
-@media (max-width: 600px) {
-  #controls {
-    flex-direction: column;
-    align-items: stretch; /* fields/buttons take full width */
-  }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
 
-  #controls input,
-  #controls select,
-  #controls button {
-    width: 100%;
-  }
-}
-input, select, button {
-  padding: 6px 10px;
-  font-size: 14px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-button {
-  background: #1976d2;
-  color: white;
-  border: none;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-button:hover {
-  background: #125ca1;
-}
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    #topbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #topbar input,
+    #topbar select,
+    #topbar button {
+      padding: 7px 8px;
+      font-size: 13px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--panel2);
+      color: var(--text);
+    }
+
+    #topbar button {
+      cursor: pointer;
+    }
+
+    #topbar button:hover {
+      filter: brightness(1.08);
+    }
+
+    #info {
+      background: #0f141a;
+      border-bottom: 1px solid var(--border);
+      padding: 8px 10px;
+      color: var(--green);
+      font-size: 13px;
+      white-space: pre-line;
+      min-height: 44px;
+    }
+
+    #main {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(260px, 320px) 1fr;
+    }
+
+    #sidepanel {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .section {
+      padding: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section h3 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .section p {
+      margin: 4px 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    #fault-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .list-item {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--red);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 12px;
+    }
+
+    .list-item.manual {
+      border-left-color: var(--orange);
+    }
+
+    .list-item .title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .list-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .list-actions button {
+      padding: 5px 7px;
+      font-size: 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #222a34;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .small {
+      width: 95px;
+    }
+
+    .medium {
+      width: 145px;
+    }
+
+    .wide {
+      min-width: 220px;
+    }
+
+    .popup-actions {
+      margin-top: 8px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .popup-actions button {
+      padding: 5px 7px;
+      font-size: 12px;
+      border-radius: 6px;
+      border: 1px solid #bbb;
+      background: #fff;
+      color: #111;
+      cursor: pointer;
+    }
+
+    @media (max-width: 900px) {
+      #main {
+        grid-template-columns: 1fr;
+        grid-template-rows: 240px 1fr;
+      }
+
+      #sidepanel {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+    }
   </style>
 </head>
 <body>
-  <div id="controls">
+<div id="app">
+  <div id="topbar">
     <input type="file" id="file-input" accept=".kml,.kmz">
-    <label>Reference Node:
-      <select id="node-select"></select>
-    </label>
-    <label>OTDR Distance (m):
-      <input type="number" id="distance-input" placeholder="e.g. 500" />
-    </label>
-    <button onclick="calculateFault()">Locate Fault</button>
+
+    <select id="route-mode" class="medium">
+      <option value="auto">Auto Best Route</option>
+      <option value="single">Select Segment</option>
+      <option value="merge">Merge Connected Segments</option>
+    </select>
+
+    <select id="segment-select" class="wide hidden">
+      <option value="">Select Segment</option>
+    </select>
+
+    <select id="node-select" class="wide">
+      <option value="">Select Reference Node</option>
+    </select>
+
+    <input type="number" id="distance" class="small" placeholder="OTDR km" min="0" step="0.01">
+    <input type="number" id="ratio" class="small" value="1.03" min="0.01" step="0.01" title="OTDR to actual ratio">
+
+    <select id="direction" class="medium">
+      <option value="auto">Auto Direction</option>
+      <option value="start">From Start</option>
+      <option value="end">From End</option>
+    </select>
+
+    <button type="button" id="locate-fault-btn">Locate Fault</button>
+
+    <input type="text" id="coord-input" class="wide" placeholder="Lat, Lon  (e.g. 14.5995, 120.9842)">
+    <input type="text" id="coord-label" class="medium" placeholder="Manual label">
+    <button type="button" id="plot-coord-btn">Plot Coordinate</button>
+
+    <button type="button" id="toggle-faults-btn">Hide Faults</button>
+    <button type="button" id="clear-faults-btn">Clear Faults</button>
+    <button type="button" id="clear-manuals-btn">Clear Manual</button>
+    <button type="button" id="clear-all-pins-btn">Clear All Pins</button>
+    <button type="button" id="export-kml-btn">Export KML</button>
   </div>
-  <div id="map"></div>
 
-  <script>
-    let map = L.map('map', { zoomControl: false }).setView([14.5995, 120.9842], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  <div id="info">No file loaded.</div>
 
-    let routeLine, placemarks = {}, routeCoords = [];
+  <div id="main">
+    <div id="sidepanel">
+      <div class="section">
+        <h3>Active Route</h3>
+        <p id="route-summary">No active route.</p>
+      </div>
 
-    document.getElementById('file-input').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
+      <div class="section">
+        <h3>Fault List Panel</h3>
+        <p>Includes faults and manual coordinate pins. Saved values are frozen at creation time.</p>
+        <div id="fault-list"></div>
+      </div>
+    </div>
 
-      const reader = new FileReader();
-      const ext = file.name.split('.').pop().toLowerCase();
+    <div id="map"></div>
+  </div>
+</div>
 
-      if (ext === "kmz") {
-        reader.onload = function(e) {
-          JSZip.loadAsync(e.target.result).then(zip => {
-            Object.keys(zip.files).forEach(function(filename) {
-              if (filename.endsWith(".kml")) {
-                zip.files[filename].async("string").then(kmlText => processKML(kmlText));
-              }
-            });
-          });
-        };
-        reader.readAsArrayBuffer(file);
+<script>
+  const CONNECT_TOLERANCE_METERS = 20;
+  const NODE_NEAR_ROUTE_TOLERANCE_METERS = 100;
+
+  const map = L.map('map').setView([14.6, 121.0], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const routeLayer = L.layerGroup().addTo(map);
+  const nodeLayer = L.layerGroup().addTo(map);
+  const faultPinsLayer = L.layerGroup().addTo(map);
+  const manualPinsLayer = L.layerGroup().addTo(map);
+
+  let routeCoords = [];
+  let placemarks = {};
+  let rawSegments = [];
+  let currentRouteMeta = null;
+
+  let faultRecords = [];
+  let manualRecords = [];
+  let faultIdCounter = 1;
+  let manualIdCounter = 1;
+  let faultsVisible = true;
+
+  const fileInput = document.getElementById('file-input');
+  const routeModeEl = document.getElementById('route-mode');
+  const segmentSelectEl = document.getElementById('segment-select');
+  const nodeSelectEl = document.getElementById('node-select');
+  const distanceEl = document.getElementById('distance');
+  const ratioEl = document.getElementById('ratio');
+  const directionEl = document.getElementById('direction');
+  const coordInputEl = document.getElementById('coord-input');
+  const coordLabelEl = document.getElementById('coord-label');
+  const infoEl = document.getElementById('info');
+  const routeSummaryEl = document.getElementById('route-summary');
+  const faultListEl = document.getElementById('fault-list');
+  const toggleFaultsBtn = document.getElementById('toggle-faults-btn');
+
+  fileInput.addEventListener('change', onFileSelected);
+  routeModeEl.addEventListener('change', onRouteModeChanged);
+  segmentSelectEl.addEventListener('change', onSegmentChanged);
+  document.getElementById('locate-fault-btn').addEventListener('click', locateFault);
+  document.getElementById('plot-coord-btn').addEventListener('click', plotManualCoordinate);
+  document.getElementById('toggle-faults-btn').addEventListener('click', toggleFaultsVisibility);
+  document.getElementById('clear-faults-btn').addEventListener('click', clearAllFaults);
+  document.getElementById('clear-manuals-btn').addEventListener('click', clearAllManualPins);
+  document.getElementById('clear-all-pins-btn').addEventListener('click', clearAllPins);
+  document.getElementById('export-kml-btn').addEventListener('click', exportKML);
+
+  async function onFileSelected(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      resetAll();
+      let text = '';
+
+      if (file.name.toLowerCase().endsWith('.kmz')) {
+        const zip = await JSZip.loadAsync(file);
+        let kmlEntry = null;
+
+        zip.forEach((path, entry) => {
+          if (!kmlEntry && path.toLowerCase().endsWith('.kml')) {
+            kmlEntry = entry;
+          }
+        });
+
+        if (!kmlEntry) {
+          throw new Error('No KML found inside KMZ.');
+        }
+
+        text = await kmlEntry.async('text');
+      } else if (file.name.toLowerCase().endsWith('.kml')) {
+        text = await file.text();
       } else {
-        reader.onload = e => processKML(e.target.result);
-        reader.readAsText(file);
+        throw new Error('Unsupported file type. Upload .kml or .kmz');
+      }
+
+      processKML(text);
+    } catch (err) {
+      infoEl.textContent = 'Error loading file.';
+      routeSummaryEl.textContent = 'No active route.';
+      alert('Error loading file: ' + err.message);
+    }
+  }
+
+  function resetAll() {
+    routeLayer.clearLayers();
+    nodeLayer.clearLayers();
+    faultPinsLayer.clearLayers();
+    manualPinsLayer.clearLayers();
+
+    routeCoords = [];
+    placemarks = {};
+    rawSegments = [];
+    currentRouteMeta = null;
+
+    faultRecords = [];
+    manualRecords = [];
+    faultIdCounter = 1;
+    manualIdCounter = 1;
+    faultsVisible = true;
+    toggleFaultsBtn.textContent = 'Hide Faults';
+
+    nodeSelectEl.innerHTML = '<option value="">Select Reference Node</option>';
+    segmentSelectEl.innerHTML = '<option value="">Select Segment</option>';
+
+    updateFaultListPanel();
+    updateRouteSummary('No active route.');
+    infoEl.textContent = 'No file loaded.';
+  }
+
+  function onRouteModeChanged() {
+    toggleSegmentSelector();
+    refreshActiveRoute(false);
+  }
+
+  function onSegmentChanged() {
+    if (routeModeEl.value === 'single') {
+      refreshActiveRoute(false);
+    }
+  }
+
+  function toggleSegmentSelector() {
+    const show = routeModeEl.value === 'single';
+    segmentSelectEl.classList.toggle('hidden', !show);
+  }
+
+  function processKML(text) {
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(text, 'text/xml');
+
+    if (xml.querySelector('parsererror')) {
+      throw new Error('Invalid KML format.');
+    }
+
+    const geojson = toGeoJSON.kml(xml);
+
+    if (!geojson.features || geojson.features.length === 0) {
+      throw new Error('No features found.');
+    }
+
+    let pointCount = 0;
+    let segmentCounter = 0;
+
+    geojson.features.forEach(feature => {
+      if (!feature.geometry) return;
+
+      if (feature.geometry.type === 'LineString') {
+        const coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
+        if (coords.length >= 2) {
+          segmentCounter++;
+          rawSegments.push({
+            id: rawSegments.length,
+            name: safeSegmentName(feature.properties?.name, segmentCounter),
+            coords: removeConsecutiveDuplicates(coords)
+          });
+        }
+      }
+
+      if (feature.geometry.type === 'MultiLineString') {
+        feature.geometry.coordinates.forEach((part, idx) => {
+          const coords = part.map(c => [c[1], c[0]]);
+          if (coords.length >= 2) {
+            segmentCounter++;
+            rawSegments.push({
+              id: rawSegments.length,
+              name: safeSegmentName(feature.properties?.name ? feature.properties.name + ' - Part ' + (idx + 1) : '', segmentCounter),
+              coords: removeConsecutiveDuplicates(coords)
+            });
+          }
+        });
+      }
+
+      if (feature.geometry.type === 'Point') {
+        pointCount++;
+        const rawName = feature.properties?.name || 'Node';
+        let name = rawName;
+        let counter = 1;
+
+        while (placemarks[name]) {
+          counter++;
+          name = `${rawName} (${counter})`;
+        }
+
+        const coord = [feature.geometry.coordinates[1], feature.geometry.coordinates[0]];
+        placemarks[name] = coord;
+        L.marker(coord).addTo(nodeLayer).bindPopup(escapeHtml(name));
+
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        nodeSelectEl.appendChild(opt);
       }
     });
 
-    function processKML(kmlText) {
-      const parser = new DOMParser();
-      const kml = parser.parseFromString(kmlText, "text/xml");
-      const geojson = toGeoJSON.kml(kml);
+    if (rawSegments.length === 0) {
+      throw new Error('No route segments found.');
+    }
 
+    populateSegmentSelector();
+    toggleSegmentSelector();
+    refreshActiveRoute(true, pointCount);
+  }
+
+  function populateSegmentSelector() {
+    segmentSelectEl.innerHTML = '<option value="">Select Segment</option>';
+
+    rawSegments.forEach((seg, idx) => {
+      const opt = document.createElement('option');
+      opt.value = String(idx);
+      opt.textContent = `${seg.name} — ${getRouteLength(seg.coords).toFixed(2)} km`;
+      segmentSelectEl.appendChild(opt);
+    });
+  }
+
+  function refreshActiveRoute(fitMap = true, pointCount = null) {
+    routeLayer.clearLayers();
+
+    if (rawSegments.length === 0) {
       routeCoords = [];
-      placemarks = {};
+      currentRouteMeta = null;
+      infoEl.textContent = 'No file loaded.';
+      updateRouteSummary('No active route.');
+      return;
+    }
 
-      // Clear previous
-      if (routeLine) map.removeLayer(routeLine);
-      document.getElementById('node-select').innerHTML = '';
+    const mode = routeModeEl.value;
+    let result = null;
 
-      geojson.features.forEach(feature => {
-        if (feature.geometry.type === "LineString") {
-          routeCoords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
-          routeLine = L.polyline(routeCoords, { color: 'blue' }).addTo(map);
-          map.fitBounds(routeLine.getBounds());
+    if (mode === 'single') {
+      const selectedIndex = segmentSelectEl.value;
+      if (selectedIndex === '') {
+        routeCoords = [];
+        currentRouteMeta = null;
+        infoEl.textContent = 'Select a segment.';
+        updateRouteSummary('No active route.');
+        return;
+      }
+
+      const seg = rawSegments[parseInt(selectedIndex, 10)];
+      result = {
+        route: seg.coords.slice(),
+        meta: {
+          mode: 'single',
+          segmentName: seg.name,
+          segmentIndex: parseInt(selectedIndex, 10),
+          segmentsUsed: 1,
+          disconnectedGroups: 1,
+          hasBranching: false
         }
+      };
+    } else if (mode === 'merge') {
+      result = buildMergedRouteFromAllConnectedSegments(rawSegments.map(s => s.coords));
+      if (result) result.meta.mode = 'merge';
+    } else {
+      result = buildBestRouteFromSegments(rawSegments.map(s => s.coords), null);
+      if (result) result.meta.mode = 'auto';
+    }
 
-        if (feature.geometry.type === "Point") {
-          const [lon, lat] = feature.geometry.coordinates;
-          const name = feature.properties.name || `Node ${Object.keys(placemarks).length + 1}`;
-          placemarks[name] = [lat, lon];
-          document.getElementById('node-select').innerHTML += `<option value="${name}">${name}</option>`;
-          L.marker([lat, lon]).bindPopup(name).addTo(map);
+    if (!result || !result.route || result.route.length < 2) {
+      routeCoords = [];
+      currentRouteMeta = null;
+      infoEl.textContent = 'Could not build route.';
+      updateRouteSummary('No active route.');
+      return;
+    }
+
+    routeCoords = result.route;
+    currentRouteMeta = result.meta;
+
+    L.polyline(routeCoords, { color: '#4ea1ff', weight: 4 }).addTo(routeLayer);
+
+    if (fitMap) {
+      map.fitBounds(routeCoords);
+    }
+
+    const totalLen = getRouteLength(routeCoords).toFixed(2);
+    let info = `Route loaded | Mode: ${formatModeLabel(currentRouteMeta.mode)} | Length: ${totalLen} km`;
+    if (pointCount !== null) {
+      info += `\nNodes: ${pointCount} | Segments: ${rawSegments.length}`;
+    }
+    if (currentRouteMeta.mode === 'single') {
+      info += `\nSelected Segment: ${currentRouteMeta.segmentName}`;
+    }
+    if (currentRouteMeta.disconnectedGroups > 1) {
+      info += `\nDisconnected groups found: ${currentRouteMeta.disconnectedGroups}`;
+    }
+    if (currentRouteMeta.hasBranching) {
+      info += `\nBranch detected. Best continuous path used.`;
+    }
+    infoEl.textContent = info;
+
+    let summary = `Mode: ${formatModeLabel(currentRouteMeta.mode)}\nActive route length: ${totalLen} km`;
+    if (currentRouteMeta.mode === 'single') {
+      summary += `\nSegment: ${currentRouteMeta.segmentName}`;
+    }
+    if (currentRouteMeta.mode === 'merge') {
+      summary += `\nMerged connected segments: ${currentRouteMeta.segmentsUsed || 1}`;
+    }
+    updateRouteSummary(summary);
+  }
+
+  function locateFault() {
+    try {
+      if (rawSegments.length === 0) {
+        alert('Load a KML/KMZ first.');
+        return;
+      }
+
+      const nodeName = nodeSelectEl.value;
+      if (!nodeName) {
+        alert('Select a reference node.');
+        return;
+      }
+
+      const inputDist = parseFloat(distanceEl.value);
+      const ratio = parseFloat(ratioEl.value);
+      const direction = directionEl.value;
+
+      if (Number.isNaN(inputDist) || inputDist < 0) {
+        alert('Enter a valid OTDR distance.');
+        return;
+      }
+
+      if (Number.isNaN(ratio) || ratio <= 0) {
+        alert('Enter a valid ratio.');
+        return;
+      }
+
+      const nodeCoord = placemarks[nodeName];
+      const routeResult = buildRouteForCurrentSelection(nodeCoord);
+
+      if (!routeResult || !routeResult.route || routeResult.route.length < 2) {
+        alert('Could not build route for current selection.');
+        return;
+      }
+
+      routeCoords = routeResult.route;
+      currentRouteMeta = routeResult.meta;
+      redrawRoutePreserveView();
+
+      const refProjection = projectPointOntoRoute(routeCoords, nodeCoord);
+      if (!refProjection) {
+        alert('Could not align reference node to active route.');
+        return;
+      }
+
+      if (routeModeEl.value === 'single' && refProjection.distanceMeters > NODE_NEAR_ROUTE_TOLERANCE_METERS) {
+        alert('Reference node is not on or near the selected segment.');
+        return;
+      }
+
+      const totalLen = getRouteLength(routeCoords);
+      let resolvedDirection = direction;
+
+      if (direction === 'auto') {
+        const toStart = refProjection.distanceFromStartKm;
+        const toEnd = totalLen - toStart;
+        resolvedDirection = toStart <= toEnd ? 'start' : 'end';
+      }
+
+      const adjusted = inputDist / ratio;
+      let faultDistanceFromStart = resolvedDirection === 'start'
+        ? refProjection.distanceFromStartKm + adjusted
+        : refProjection.distanceFromStartKm - adjusted;
+
+      faultDistanceFromStart = clamp(faultDistanceFromStart, 0, totalLen);
+
+      const faultPoint = interpolateByDistanceFromStart(routeCoords, faultDistanceFromStart);
+      const distFromStart = faultDistanceFromStart;
+      const distFromEnd = totalLen - distFromStart;
+      const directDistanceFromRefNodeKm = map.distance(nodeCoord, faultPoint) / 1000;
+
+      const id = 'fault-' + (faultIdCounter++);
+      const title = 'Fault ' + faultRecords.length + 1;
+
+      const record = {
+        id,
+        type: 'fault',
+        title,
+        lat: faultPoint[0],
+        lon: faultPoint[1],
+        marker: null,
+        routeMode: currentRouteMeta.mode,
+        routeModeLabel: formatModeLabel(currentRouteMeta.mode),
+        refNode: nodeName,
+        segmentName: currentRouteMeta.segmentName || '',
+        distanceFromStartKm: distFromStart,
+        distanceFromEndKm: distFromEnd,
+        distanceFromRefNodeAlongRouteKm: adjusted,
+        refNodeDistanceFromStartKm: refProjection.distanceFromStartKm,
+        directDistanceFromRefNodeKm,
+        routeLengthKm: totalLen,
+        offRouteDistanceMeters: 0,
+        originalLat: faultPoint[0],
+        originalLon: faultPoint[1]
+      };
+
+      record.marker = L.circleMarker([record.lat, record.lon], {
+        radius: 8,
+        color: '#ff5a5f',
+        fillColor: '#ff5a5f',
+        fillOpacity: 1
+      }).addTo(faultPinsLayer);
+
+      record.marker.bindPopup(buildPopupHtml(record));
+      faultRecords.push(record);
+
+      if (!faultsVisible) {
+        faultPinsLayer.removeLayer(record.marker);
+      }
+
+      map.setView([record.lat, record.lon], 17);
+      updateFaultListPanel();
+      updateInfoAfterPin(record);
+    } catch (err) {
+      alert('Locate fault failed: ' + err.message);
+    }
+  }
+
+  function plotManualCoordinate() {
+    try {
+      if (rawSegments.length === 0) {
+        alert('Load a KML/KMZ first.');
+        return;
+      }
+
+      const nodeName = nodeSelectEl.value;
+      if (!nodeName) {
+        alert('Select a reference node first.');
+        return;
+      }
+
+      const parsed = parseLatLon(coordInputEl.value);
+      if (!parsed) {
+        alert('Enter coordinates as: lat, lon');
+        return;
+      }
+
+      const label = coordLabelEl.value.trim() || ('Manual Point ' + manualIdCounter);
+      const manualCoord = [parsed.lat, parsed.lon];
+      const nodeCoord = placemarks[nodeName];
+
+      const routeResult = buildRouteForCurrentSelection(nodeCoord);
+      if (!routeResult || !routeResult.route || routeResult.route.length < 2) {
+        alert('Could not build route for current selection.');
+        return;
+      }
+
+      routeCoords = routeResult.route;
+      currentRouteMeta = routeResult.meta;
+      redrawRoutePreserveView();
+
+      const refProjection = projectPointOntoRoute(routeCoords, nodeCoord);
+      if (!refProjection) {
+        alert('Could not align reference node to active route.');
+        return;
+      }
+
+      const manualProjection = projectPointOntoRoute(routeCoords, manualCoord);
+      if (!manualProjection) {
+        alert('Could not align manual coordinate to route.');
+        return;
+      }
+
+      const totalLen = getRouteLength(routeCoords);
+      const alignedDistFromStart = manualProjection.distanceFromStartKm;
+      const distFromEnd = totalLen - alignedDistFromStart;
+      const alignedDistFromRefNode = Math.abs(alignedDistFromStart - refProjection.distanceFromStartKm);
+      const directDistanceFromRefNodeKm = map.distance(nodeCoord, manualCoord) / 1000;
+      const offRouteDistanceMeters = manualProjection.distanceMeters;
+
+      const id = 'manual-' + (manualIdCounter++);
+      const record = {
+        id,
+        type: 'manual',
+        title: label,
+        lat: manualProjection.point[0],
+        lon: manualProjection.point[1],
+        marker: null,
+        routeMode: currentRouteMeta.mode,
+        routeModeLabel: formatModeLabel(currentRouteMeta.mode),
+        refNode: nodeName,
+        segmentName: currentRouteMeta.segmentName || '',
+        distanceFromStartKm: alignedDistFromStart,
+        distanceFromEndKm: distFromEnd,
+        distanceFromRefNodeAlongRouteKm: alignedDistFromRefNode,
+        refNodeDistanceFromStartKm: refProjection.distanceFromStartKm,
+        directDistanceFromRefNodeKm,
+        routeLengthKm: totalLen,
+        offRouteDistanceMeters,
+        originalLat: manualCoord[0],
+        originalLon: manualCoord[1]
+      };
+
+      record.marker = L.circleMarker([record.lat, record.lon], {
+        radius: 8,
+        color: '#ffb347',
+        fillColor: '#ffb347',
+        fillOpacity: 1
+      }).addTo(manualPinsLayer);
+
+      record.marker.bindPopup(buildPopupHtml(record));
+      manualRecords.push(record);
+
+      map.setView([record.lat, record.lon], 17);
+      updateFaultListPanel();
+      updateInfoAfterPin(record);
+
+      coordInputEl.value = '';
+      coordLabelEl.value = '';
+    } catch (err) {
+      alert('Plot coordinate failed: ' + err.message);
+    }
+  }
+
+  function buildRouteForCurrentSelection(preferredPoint) {
+    const mode = routeModeEl.value;
+
+    if (mode === 'single') {
+      const selectedIndex = segmentSelectEl.value;
+      if (selectedIndex === '') {
+        throw new Error('Select a segment first.');
+      }
+
+      const seg = rawSegments[parseInt(selectedIndex, 10)];
+      return {
+        route: seg.coords.slice(),
+        meta: {
+          mode: 'single',
+          segmentName: seg.name,
+          segmentIndex: parseInt(selectedIndex, 10),
+          segmentsUsed: 1,
+          disconnectedGroups: 1,
+          hasBranching: false
+        }
+      };
+    }
+
+    if (mode === 'merge') {
+      const result = buildMergedRouteFromConnectedGroupContainingPoint(rawSegments.map(s => s.coords), preferredPoint)
+        || buildMergedRouteFromAllConnectedSegments(rawSegments.map(s => s.coords));
+      if (result) result.meta.mode = 'merge';
+      return result;
+    }
+
+    const auto = buildBestRouteFromSegments(rawSegments.map(s => s.coords), preferredPoint);
+    if (auto) auto.meta.mode = 'auto';
+    return auto;
+  }
+
+  function redrawRoutePreserveView() {
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    routeLayer.clearLayers();
+
+    if (routeCoords && routeCoords.length >= 2) {
+      L.polyline(routeCoords, { color: '#4ea1ff', weight: 4 }).addTo(routeLayer);
+    }
+
+    map.setView(center, zoom);
+  }
+
+  function toggleFaultsVisibility() {
+    faultsVisible = !faultsVisible;
+
+    faultRecords.forEach(record => {
+      if (record.marker) {
+        if (faultsVisible) {
+          faultPinsLayer.addLayer(record.marker);
+        } else {
+          faultPinsLayer.removeLayer(record.marker);
+        }
+      }
+    });
+
+    toggleFaultsBtn.textContent = faultsVisible ? 'Hide Faults' : 'Show Faults';
+  }
+
+  function clearAllFaults() {
+    faultRecords.forEach(r => {
+      if (r.marker) faultPinsLayer.removeLayer(r.marker);
+    });
+    faultRecords = [];
+    updateFaultListPanel();
+  }
+
+  function clearAllManualPins() {
+    manualRecords.forEach(r => {
+      if (r.marker) manualPinsLayer.removeLayer(r.marker);
+    });
+    manualRecords = [];
+    updateFaultListPanel();
+  }
+
+  function clearAllPins() {
+    clearAllFaults();
+    clearAllManualPins();
+  }
+
+  function removePinById(id) {
+    let idx = faultRecords.findIndex(r => r.id === id);
+    if (idx !== -1) {
+      const record = faultRecords[idx];
+      if (record.marker) faultPinsLayer.removeLayer(record.marker);
+      faultRecords.splice(idx, 1);
+      updateFaultListPanel();
+      return;
+    }
+
+    idx = manualRecords.findIndex(r => r.id === id);
+    if (idx !== -1) {
+      const record = manualRecords[idx];
+      if (record.marker) manualPinsLayer.removeLayer(record.marker);
+      manualRecords.splice(idx, 1);
+      updateFaultListPanel();
+    }
+  }
+
+  function zoomToPin(id) {
+    const record = [...faultRecords, ...manualRecords].find(r => r.id === id);
+    if (!record) return;
+    map.setView([record.lat, record.lon], 18);
+    if (record.marker) record.marker.openPopup();
+  }
+
+  function updateFaultListPanel() {
+    const all = [...faultRecords, ...manualRecords];
+    faultListEl.innerHTML = '';
+
+    if (all.length === 0) {
+      faultListEl.innerHTML = '<p style="color:#aab4c0; font-size:12px; margin:0;">No plotted results yet.</p>';
+      return;
+    }
+
+    all.forEach(record => {
+      const div = document.createElement('div');
+      div.className = 'list-item ' + (record.type === 'manual' ? 'manual' : '');
+      div.innerHTML = `
+        <div class="title">${escapeHtml(record.title)} ${record.type === 'manual' ? '(Manual)' : '(Fault)'}</div>
+        <div>Ref Node: ${escapeHtml(record.refNode)}</div>
+        <div>Lat/Lon: ${record.lat.toFixed(6)}, ${record.lon.toFixed(6)}</div>
+        <div>From Start: ${record.distanceFromStartKm.toFixed(2)} km</div>
+        <div>From End: ${record.distanceFromEndKm.toFixed(2)} km</div>
+        <div>From Ref Node (route): ${record.distanceFromRefNodeAlongRouteKm.toFixed(2)} km</div>
+        <div class="list-actions">
+          <button onclick="zoomToPin('${record.id}')">Zoom</button>
+          <button onclick="removePinById('${record.id}')">Remove</button>
+        </div>
+      `;
+      faultListEl.appendChild(div);
+    });
+  }
+
+  function buildPopupHtml(record) {
+    const alignedNote = record.type === 'manual'
+      ? `Original Input: ${record.originalLat.toFixed(6)}, ${record.originalLon.toFixed(6)}<br>
+         Aligned Route Point: ${record.lat.toFixed(6)}, ${record.lon.toFixed(6)}<br>
+         Off-route distance: ${record.offRouteDistanceMeters.toFixed(2)} m<br>`
+      : `Coordinates: ${record.lat.toFixed(6)}, ${record.lon.toFixed(6)}<br>`;
+
+    return `
+      <b>${escapeHtml(record.title)}</b><br>
+      Type: ${record.type === 'manual' ? 'Manual Coordinate' : 'Fault'}<br>
+      Route Mode: ${escapeHtml(record.routeModeLabel)}<br>
+      Ref Node: ${escapeHtml(record.refNode)}<br>
+      ${record.segmentName ? `Segment: ${escapeHtml(record.segmentName)}<br>` : ''}
+      ${alignedNote}
+      From Start: ${record.distanceFromStartKm.toFixed(2)} km<br>
+      From End: ${record.distanceFromEndKm.toFixed(2)} km<br>
+      From Ref Node (route): ${record.distanceFromRefNodeAlongRouteKm.toFixed(2)} km<br>
+      Direct Distance from Ref Node: ${record.directDistanceFromRefNodeKm.toFixed(2)} km
+      <div class="popup-actions">
+        <button onclick="zoomToPin('${record.id}')">Zoom</button>
+        <button onclick="removePinById('${record.id}')">Remove</button>
+      </div>
+    `;
+  }
+
+  function updateInfoAfterPin(record) {
+    let text = `${record.type === 'manual' ? 'Manual coordinate aligned and pinned.' : 'Fault pinned.'}`;
+    text += `\n${record.title} | Ref Node: ${record.refNode}`;
+    text += `\nFrom Start: ${record.distanceFromStartKm.toFixed(2)} km | From End: ${record.distanceFromEndKm.toFixed(2)} km`;
+    text += `\nFrom Ref Node (route): ${record.distanceFromRefNodeAlongRouteKm.toFixed(2)} km | Direct from Ref Node: ${record.directDistanceFromRefNodeKm.toFixed(2)} km`;
+    if (record.type === 'manual') {
+      text += `\nOriginal Input: ${record.originalLat.toFixed(6)}, ${record.originalLon.toFixed(6)} | Off-route: ${record.offRouteDistanceMeters.toFixed(2)} m`;
+    }
+    infoEl.textContent = text;
+  }
+
+  function exportKML() {
+    try {
+      if (rawSegments.length === 0) {
+        alert('Nothing to export. Load a route first.');
+        return;
+      }
+
+      const allPins = [...faultRecords, ...manualRecords];
+
+      const parts = [];
+      parts.push('<?xml version="1.0" encoding="UTF-8"?>');
+      parts.push('<kml xmlns="http://www.opengis.net/kml/2.2">');
+      parts.push('<Document>');
+      parts.push('<name>Fiber Fault Locator Export</name>');
+
+      parts.push(`
+        <Style id="origLine">
+          <LineStyle><color>ffff0000</color><width>3</width></LineStyle>
+        </Style>
+        <Style id="activeLine">
+          <LineStyle><color>ff00a5ff</color><width>4</width></LineStyle>
+        </Style>
+        <Style id="faultPin">
+          <IconStyle><color>ff5a5fff</color><scale>1.1</scale></IconStyle>
+        </Style>
+        <Style id="manualPin">
+          <IconStyle><color>ff47b3ff</color><scale>1.1</scale></IconStyle>
+        </Style>
+      `);
+
+      // Original segments
+      parts.push('<Folder><name>Original Route Segments</name>');
+      rawSegments.forEach(seg => {
+        parts.push('<Placemark>');
+        parts.push(`<name>${escapeXml(seg.name)}</name>`);
+        parts.push('<styleUrl>#origLine</styleUrl>');
+        parts.push('<LineString><tessellate>1</tessellate><coordinates>');
+        parts.push(seg.coords.map(c => `${c[1]},${c[0]},0`).join(' '));
+        parts.push('</coordinates></LineString>');
+        parts.push('</Placemark>');
+      });
+      parts.push('</Folder>');
+
+      // Active route
+      if (routeCoords.length >= 2) {
+        parts.push('<Folder><name>Active Route</name>');
+        parts.push('<Placemark>');
+        parts.push('<name>Active Route</name>');
+        parts.push('<styleUrl>#activeLine</styleUrl>');
+        parts.push('<LineString><tessellate>1</tessellate><coordinates>');
+        parts.push(routeCoords.map(c => `${c[1]},${c[0]},0`).join(' '));
+        parts.push('</coordinates></LineString>');
+        parts.push('</Placemark>');
+        parts.push('</Folder>');
+      }
+
+      // Nodes
+      parts.push('<Folder><name>Reference Nodes</name>');
+      Object.entries(placemarks).forEach(([name, coord]) => {
+        parts.push('<Placemark>');
+        parts.push(`<name>${escapeXml(name)}</name>`);
+        parts.push('<Point><coordinates>' + coord[1] + ',' + coord[0] + ',0</coordinates></Point>');
+        parts.push('</Placemark>');
+      });
+      parts.push('</Folder>');
+
+      // Faults
+      parts.push('<Folder><name>Fault Results</name>');
+      faultRecords.forEach(r => {
+        parts.push('<Placemark>');
+        parts.push(`<name>${escapeXml(r.title)}</name>`);
+        parts.push('<styleUrl>#faultPin</styleUrl>');
+        parts.push('<description><![CDATA[' + buildExportDescription(r) + ']]></description>');
+        parts.push('<Point><coordinates>' + r.lon + ',' + r.lat + ',0</coordinates></Point>');
+        parts.push('</Placemark>');
+      });
+      parts.push('</Folder>');
+
+      // Manual coordinates
+      parts.push('<Folder><name>Manual Coordinates</name>');
+      manualRecords.forEach(r => {
+        parts.push('<Placemark>');
+        parts.push(`<name>${escapeXml(r.title)}</name>`);
+        parts.push('<styleUrl>#manualPin</styleUrl>');
+        parts.push('<description><![CDATA[' + buildExportDescription(r) + ']]></description>');
+        parts.push('<Point><coordinates>' + r.lon + ',' + r.lat + ',0</coordinates></Point>');
+        parts.push('</Placemark>');
+      });
+      parts.push('</Folder>');
+
+      parts.push('</Document></kml>');
+
+      const blob = new Blob([parts.join('')], { type: 'application/vnd.google-earth.kml+xml' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'fiber_fault_locator_export.kml';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+    } catch (err) {
+      alert('Export failed: ' + err.message);
+    }
+  }
+
+  function buildExportDescription(record) {
+    let lines = [
+      'Type: ' + (record.type === 'manual' ? 'Manual Coordinate' : 'Fault'),
+      'Route Mode: ' + record.routeModeLabel,
+      'Reference Node: ' + record.refNode
+    ];
+
+    if (record.segmentName) {
+      lines.push('Segment: ' + record.segmentName);
+    }
+
+    lines.push('Displayed Coordinates: ' + record.lat.toFixed(6) + ', ' + record.lon.toFixed(6));
+    lines.push('Distance from Start: ' + record.distanceFromStartKm.toFixed(2) + ' km');
+    lines.push('Distance from End: ' + record.distanceFromEndKm.toFixed(2) + ' km');
+    lines.push('Distance from Ref Node (route): ' + record.distanceFromRefNodeAlongRouteKm.toFixed(2) + ' km');
+    lines.push('Direct Distance from Ref Node: ' + record.directDistanceFromRefNodeKm.toFixed(2) + ' km');
+
+    if (record.type === 'manual') {
+      lines.push('Original Input Coordinates: ' + record.originalLat.toFixed(6) + ', ' + record.originalLon.toFixed(6));
+      lines.push('Off-route Distance: ' + record.offRouteDistanceMeters.toFixed(2) + ' m');
+    }
+
+    return lines.join('<br>');
+  }
+
+  function updateRouteSummary(text) {
+    routeSummaryEl.textContent = text;
+  }
+
+  function safeSegmentName(name, fallbackNumber) {
+    const clean = (name || '').trim();
+    return clean || ('Segment ' + fallbackNumber);
+  }
+
+  function parseLatLon(str) {
+    const parts = String(str).split(',').map(s => s.trim());
+    if (parts.length !== 2) return null;
+
+    const lat = parseFloat(parts[0]);
+    const lon = parseFloat(parts[1]);
+
+    if (
+      Number.isNaN(lat) || Number.isNaN(lon) ||
+      lat < -90 || lat > 90 ||
+      lon < -180 || lon > 180
+    ) {
+      return null;
+    }
+
+    return { lat, lon };
+  }
+
+  function buildMergedRouteFromAllConnectedSegments(segments) {
+    const normalized = segments
+      .filter(seg => Array.isArray(seg) && seg.length >= 2)
+      .map(seg => removeConsecutiveDuplicates(seg));
+
+    if (normalized.length === 0) return null;
+
+    const adjacency = buildSegmentAdjacency(normalized);
+    const groups = findConnectedSegmentGroups(normalized.length, adjacency);
+
+    let bestGroup = null;
+    let bestTotal = -1;
+
+    groups.forEach(group => {
+      const total = group.reduce((sum, idx) => sum + getRouteLength(normalized[idx]), 0);
+      if (total > bestTotal) {
+        bestTotal = total;
+        bestGroup = group;
+      }
+    });
+
+    if (!bestGroup) return null;
+
+    const groupSegments = bestGroup.map(idx => normalized[idx]);
+    const graph = buildEndpointGraph(groupSegments);
+    const bestPath = findBestContinuousPathInGroup(graph, null);
+
+    if (!bestPath || !bestPath.route || bestPath.route.length < 2) return null;
+
+    return {
+      route: bestPath.route,
+      meta: {
+        mode: 'merge',
+        segmentsUsed: bestGroup.length,
+        disconnectedGroups: groups.length,
+        hasBranching: bestPath.hasBranching
+      }
+    };
+  }
+
+  function buildMergedRouteFromConnectedGroupContainingPoint(segments, preferredPoint) {
+    const normalized = segments
+      .filter(seg => Array.isArray(seg) && seg.length >= 2)
+      .map(seg => removeConsecutiveDuplicates(seg));
+
+    if (normalized.length === 0) return null;
+
+    const adjacency = buildSegmentAdjacency(normalized);
+    const groups = findConnectedSegmentGroups(normalized.length, adjacency);
+
+    let targetGroups = groups;
+
+    if (preferredPoint) {
+      const containing = groups.filter(group => groupHasPointOrNearbySegment(group, normalized, preferredPoint));
+      if (containing.length > 0) {
+        targetGroups = containing;
+      }
+    }
+
+    let bestGroup = null;
+    let bestTotal = -1;
+
+    targetGroups.forEach(group => {
+      const total = group.reduce((sum, idx) => sum + getRouteLength(normalized[idx]), 0);
+      if (total > bestTotal) {
+        bestTotal = total;
+        bestGroup = group;
+      }
+    });
+
+    if (!bestGroup) return null;
+
+    const groupSegments = bestGroup.map(idx => normalized[idx]);
+    const graph = buildEndpointGraph(groupSegments);
+    const bestPath = findBestContinuousPathInGroup(graph, preferredPoint);
+
+    if (!bestPath || !bestPath.route || bestPath.route.length < 2) return null;
+
+    return {
+      route: bestPath.route,
+      meta: {
+        mode: 'merge',
+        segmentsUsed: bestGroup.length,
+        disconnectedGroups: groups.length,
+        hasBranching: bestPath.hasBranching
+      }
+    };
+  }
+
+  function buildBestRouteFromSegments(segments, preferredPoint) {
+    const normalized = segments
+      .filter(seg => Array.isArray(seg) && seg.length >= 2)
+      .map(seg => removeConsecutiveDuplicates(seg));
+
+    if (normalized.length === 0) return null;
+
+    const adjacency = buildSegmentAdjacency(normalized);
+    const groups = findConnectedSegmentGroups(normalized.length, adjacency);
+
+    let candidateGroups = groups;
+
+    if (preferredPoint) {
+      const containing = groups.filter(group => groupHasPointOrNearbySegment(group, normalized, preferredPoint));
+      if (containing.length > 0) {
+        candidateGroups = containing;
+      }
+    }
+
+    let bestRoute = null;
+    let bestMeta = null;
+    let bestLen = -1;
+
+    candidateGroups.forEach(group => {
+      const groupSegments = group.map(i => normalized[i]);
+      const graph = buildEndpointGraph(groupSegments);
+      const bestPath = findBestContinuousPathInGroup(graph, preferredPoint);
+
+      if (!bestPath || !bestPath.route || bestPath.route.length < 2) return;
+
+      const len = getRouteLength(bestPath.route);
+      if (len > bestLen) {
+        bestLen = len;
+        bestRoute = bestPath.route;
+        bestMeta = {
+          mode: 'auto',
+          usedConnectedGroup: groupSegments.length > 1,
+          hasBranching: bestPath.hasBranching,
+          disconnectedGroups: groups.length
+        };
+      }
+    });
+
+    if (!bestRoute) return null;
+
+    return { route: bestRoute, meta: bestMeta };
+  }
+
+  function buildSegmentAdjacency(segments) {
+    const endpointRecords = segments.map((seg, idx) => ({
+      index: idx,
+      start: seg[0],
+      end: seg[seg.length - 1]
+    }));
+
+    const adjacency = new Map();
+    for (let i = 0; i < endpointRecords.length; i++) {
+      adjacency.set(i, new Set());
+    }
+
+    for (let i = 0; i < endpointRecords.length; i++) {
+      for (let j = i + 1; j < endpointRecords.length; j++) {
+        if (segmentsTouch(endpointRecords[i], endpointRecords[j])) {
+          adjacency.get(i).add(j);
+          adjacency.get(j).add(i);
+        }
+      }
+    }
+
+    return adjacency;
+  }
+
+  function buildEndpointGraph(groupSegments) {
+    const nodes = [];
+    const edges = [];
+
+    function getOrCreateNode(coord) {
+      for (let i = 0; i < nodes.length; i++) {
+        if (coordsNear(nodes[i], coord, CONNECT_TOLERANCE_METERS)) {
+          return i;
+        }
+      }
+      nodes.push(coord);
+      return nodes.length - 1;
+    }
+
+    groupSegments.forEach(seg => {
+      const clean = removeConsecutiveDuplicates(seg);
+      if (clean.length < 2) return;
+
+      const startId = getOrCreateNode(clean[0]);
+      const endId = getOrCreateNode(clean[clean.length - 1]);
+
+      edges.push({
+        startId,
+        endId,
+        coords: clean,
+        lengthKm: getRouteLength(clean)
+      });
+    });
+
+    const nodeEdges = new Map();
+    for (let i = 0; i < nodes.length; i++) nodeEdges.set(i, []);
+
+    edges.forEach((edge, idx) => {
+      nodeEdges.get(edge.startId).push(idx);
+      nodeEdges.get(edge.endId).push(idx);
+    });
+
+    let hasBranching = false;
+    for (const edgeList of nodeEdges.values()) {
+      if (edgeList.length > 2) {
+        hasBranching = true;
+        break;
+      }
+    }
+
+    return { nodes, edges, nodeEdges, hasBranching };
+  }
+
+  function findBestContinuousPathInGroup(graphData, preferredPoint) {
+    const { nodes, edges, hasBranching } = graphData;
+    if (edges.length === 0) return null;
+
+    let candidateNodeIds = [];
+
+    if (preferredPoint) {
+      nodes.forEach((node, idx) => {
+        if (coordsNear(node, preferredPoint, NODE_NEAR_ROUTE_TOLERANCE_METERS)) {
+          candidateNodeIds.push(idx);
         }
       });
     }
 
-    function calculateFault() {
-      const refNode = document.getElementById('node-select').value;
-      const inputDist = parseFloat(document.getElementById('distance-input').value);
+    if (candidateNodeIds.length === 0) {
+      candidateNodeIds = nodes.map((_, idx) => idx);
+    }
 
-      if (!placemarks[refNode] || !inputDist || routeCoords.length === 0) {
-        alert("Please load a route and input distance.");
-        return;
+    let bestRoute = null;
+    let bestLength = -1;
+
+    candidateNodeIds.forEach(startNodeId => {
+      const res = longestSimplePathFromNode(startNodeId, graphData);
+      if (res && res.lengthKm > bestLength) {
+        bestLength = res.lengthKm;
+        bestRoute = res.route;
+      }
+    });
+
+    if (!bestRoute) {
+      const fallback = longestSimplePathFromNode(0, graphData);
+      if (fallback) bestRoute = fallback.route;
+    }
+
+    return { route: bestRoute, hasBranching };
+  }
+
+  function longestSimplePathFromNode(startNodeId, graphData) {
+    const { edges, nodeEdges } = graphData;
+    let bestLength = -1;
+    let bestRoute = null;
+
+    function dfs(currentNodeId, usedEdgeIds, currentRoute, currentLength) {
+      let extended = false;
+      const connectedEdges = nodeEdges.get(currentNodeId) || [];
+
+      for (const edgeId of connectedEdges) {
+        if (usedEdgeIds.has(edgeId)) continue;
+
+        extended = true;
+        const edge = edges[edgeId];
+        const nextNodeId = edge.startId === currentNodeId ? edge.endId : edge.startId;
+        const segCoords = edge.startId === currentNodeId ? edge.coords : edge.coords.slice().reverse();
+
+        const newRoute = appendSegmentToRoute(currentRoute, segCoords);
+        const newUsed = new Set(usedEdgeIds);
+        newUsed.add(edgeId);
+
+        dfs(nextNodeId, newUsed, newRoute, currentLength + edge.lengthKm);
       }
 
-      const OTDR_TO_ACTUAL_RATIO = 1.03; // Accounts for helical winding and extra slack
-      const adjustedDist = inputDist / OTDR_TO_ACTUAL_RATIO;
-
-      const fromStart = getNearestEnd(refNode) === "start";
-
-      // Compute cumulative distances
-      let cumDist = 0;
-      for (let i = 0; i < routeCoords.length - 1; i++) {
-        const idx = fromStart ? i : routeCoords.length - 2 - i;
-        const pt1 = routeCoords[idx];
-        const pt2 = routeCoords[idx + 1];
-        const segment = fromStart ? [pt1, pt2] : [pt2, pt1];
-        const dist = map.distance(segment[0], segment[1]);
-
-        if (cumDist + dist >= adjustedDist) {
-          const remaining = adjustedDist - cumDist;
-          const ratio = remaining / dist;
-          const lat = segment[0][0] + (segment[1][0] - segment[0][0]) * ratio;
-          const lon = segment[0][1] + (segment[1][1] - segment[0][1]) * ratio;
-          L.marker([lat, lon], { color: 'red' })
-  .bindPopup(
-    `<div style="text-align:center;">
-       <b>Approx. Fault Location</b><br>
-       ${(inputDist / 1000).toFixed(2)} km from ${refNode}<br>
-       📌 Coordinates: ${lat.toFixed(6)}, ${lon.toFixed(6)}
-     </div>`
-  )
-  .addTo(map)
-  .openPopup();
-          return;
+      if (!extended) {
+        if (currentLength > bestLength && currentRoute.length >= 2) {
+          bestLength = currentLength;
+          bestRoute = currentRoute;
         }
-        cumDist += dist;
+      }
+    }
+
+    dfs(startNodeId, new Set(), [], 0);
+
+    if (!bestRoute && edges.length > 0) {
+      return { route: edges[0].coords.slice(), lengthKm: edges[0].lengthKm };
+    }
+
+    return { route: bestRoute, lengthKm: bestLength };
+  }
+
+  function appendSegmentToRoute(route, segmentCoords) {
+    if (!route || route.length === 0) return segmentCoords.slice();
+
+    const result = route.slice();
+    for (let i = 0; i < segmentCoords.length; i++) {
+      if (i === 0 && coordsNear(result[result.length - 1], segmentCoords[i], CONNECT_TOLERANCE_METERS)) {
+        continue;
+      }
+      result.push(segmentCoords[i]);
+    }
+    return removeConsecutiveDuplicates(result);
+  }
+
+  function segmentsTouch(a, b) {
+    return (
+      coordsNear(a.start, b.start, CONNECT_TOLERANCE_METERS) ||
+      coordsNear(a.start, b.end, CONNECT_TOLERANCE_METERS) ||
+      coordsNear(a.end, b.start, CONNECT_TOLERANCE_METERS) ||
+      coordsNear(a.end, b.end, CONNECT_TOLERANCE_METERS)
+    );
+  }
+
+  function findConnectedSegmentGroups(segmentCount, adjacency) {
+    const visited = new Array(segmentCount).fill(false);
+    const groups = [];
+
+    for (let i = 0; i < segmentCount; i++) {
+      if (visited[i]) continue;
+
+      const stack = [i];
+      const group = [];
+      visited[i] = true;
+
+      while (stack.length > 0) {
+        const cur = stack.pop();
+        group.push(cur);
+
+        for (const n of adjacency.get(cur) || []) {
+          if (!visited[n]) {
+            visited[n] = true;
+            stack.push(n);
+          }
+        }
       }
 
-      alert("Distance exceeds route length.");
+      groups.push(group);
     }
 
-    function getNearestEnd(refNode) {
-      const refCoord = placemarks[refNode];
-      const distToStart = map.distance(refCoord, routeCoords[0]);
-      const distToEnd = map.distance(refCoord, routeCoords[routeCoords.length - 1]);
-      return distToStart < distToEnd ? "start" : "end";
+    return groups;
+  }
+
+  function groupHasPointOrNearbySegment(group, segments, point) {
+    for (const idx of group) {
+      const seg = segments[idx];
+
+      if (coordsNear(seg[0], point, NODE_NEAR_ROUTE_TOLERANCE_METERS) || coordsNear(seg[seg.length - 1], point, NODE_NEAR_ROUTE_TOLERANCE_METERS)) {
+        return true;
+      }
+
+      const proj = projectPointOntoSegmentChain(seg, point);
+      if (proj && proj.distanceMeters <= NODE_NEAR_ROUTE_TOLERANCE_METERS) {
+        return true;
+      }
     }
-  </script>
+    return false;
+  }
+
+  function projectPointOntoRoute(route, point) {
+    if (!route || route.length < 2) return null;
+
+    let best = null;
+    let cumulativeKm = 0;
+
+    for (let i = 0; i < route.length - 1; i++) {
+      const a = route[i];
+      const b = route[i + 1];
+      const segLenKm = map.distance(a, b) / 1000;
+      const proj = projectPointToSegment(a, b, point);
+
+      const candidate = {
+        point: proj.point,
+        distanceMeters: proj.distanceMeters,
+        distanceFromStartKm: cumulativeKm + (segLenKm * proj.t)
+      };
+
+      if (!best || candidate.distanceMeters < best.distanceMeters) {
+        best = candidate;
+      }
+
+      cumulativeKm += segLenKm;
+    }
+
+    return best;
+  }
+
+  function projectPointOntoSegmentChain(seg, point) {
+    if (!seg || seg.length < 2) return null;
+
+    let best = null;
+    for (let i = 0; i < seg.length - 1; i++) {
+      const proj = projectPointToSegment(seg[i], seg[i + 1], point);
+      if (!best || proj.distanceMeters < best.distanceMeters) {
+        best = proj;
+      }
+    }
+    return best;
+  }
+
+  function projectPointToSegment(a, b, p) {
+    const ax = a[1], ay = a[0];
+    const bx = b[1], by = b[0];
+    const px = p[1], py = p[0];
+
+    const abx = bx - ax;
+    const aby = by - ay;
+    const apx = px - ax;
+    const apy = py - ay;
+
+    const ab2 = abx * abx + aby * aby;
+    let t = ab2 === 0 ? 0 : ((apx * abx + apy * aby) / ab2);
+    t = clamp(t, 0, 1);
+
+    const projLon = ax + abx * t;
+    const projLat = ay + aby * t;
+    const projPoint = [projLat, projLon];
+    const distanceMeters = map.distance(projPoint, p);
+
+    return { point: projPoint, distanceMeters, t };
+  }
+
+  function interpolateByDistanceFromStart(coords, distKm) {
+    let distMeters = distKm * 1000;
+
+    if (distMeters <= 0) return coords[0];
+
+    for (let i = 0; i < coords.length - 1; i++) {
+      const seg = map.distance(coords[i], coords[i + 1]);
+      if (distMeters <= seg) {
+        const t = seg === 0 ? 0 : distMeters / seg;
+        const lat = coords[i][0] + t * (coords[i + 1][0] - coords[i][0]);
+        const lon = coords[i][1] + t * (coords[i + 1][1] - coords[i][1]);
+        return [lat, lon];
+      }
+      distMeters -= seg;
+    }
+
+    return coords[coords.length - 1];
+  }
+
+  function getRouteLength(coords) {
+    let total = 0;
+    for (let i = 0; i < coords.length - 1; i++) {
+      total += map.distance(coords[i], coords[i + 1]);
+    }
+    return total / 1000;
+  }
+
+  function removeConsecutiveDuplicates(coords) {
+    if (!coords || coords.length === 0) return [];
+    const result = [coords[0]];
+
+    for (let i = 1; i < coords.length; i++) {
+      if (!coordsNear(result[result.length - 1], coords[i], 0.5)) {
+        result.push(coords[i]);
+      }
+    }
+
+    return result;
+  }
+
+  function coordsNear(a, b, toleranceMeters) {
+    return map.distance(a, b) <= toleranceMeters;
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function formatModeLabel(mode) {
+    if (mode === 'single') return 'Select Segment';
+    if (mode === 'merge') return 'Merge Connected Segments';
+    return 'Auto Best Route';
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function escapeXml(str) {
+    return escapeHtml(str);
+  }
+
+  // expose for popup/list buttons
+  window.removePinById = removePinById;
+  window.zoomToPin = zoomToPin;
+</script>
 </body>
 </html>
